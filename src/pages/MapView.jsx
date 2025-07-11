@@ -1,29 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import { collection, getDocs } from "firebase/firestore";
-import { useLocation } from "react-router-dom";
 import { db } from "../firebase";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 
-mapboxgl.accessToken = "pk.eyJ1IjoiY3BldGkiLCJhIjoiY21jeHp0Z2pxMDR6MDJpcXQyODVwMWtjNyJ9.Tf0tD7KFxMAlqk5LGRb1uQ";
+mapboxgl.accessToken =
+  "pk.eyJ1IjoiY3BldGkiLCJhIjoiY21jeHpoamloMGhnODJycXh3eTN2NjN2eCJ9.6_bmzNhPOxqeBM8ZDiOxUw"; // Replace with your token
 
 export default function MapView() {
+  const location = useLocation();
+  const { center = [18.76825, 42.42067], zoom = 11 } = location.state || {};
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [caves, setCaves] = useState([]);
-  const [mapStyle, setMapStyle] = useState("mapbox://styles/mapbox/outdoors-v12?optimize=true");
-  const location = useLocation();
-
-  // Defaults
-  const defaultCenter = [18.76825, 42.42067];
-  const defaultZoom = 11;
-
-  const center = location.state?.lat && location.state?.lng
-    ? [location.state.lng, location.state.lat]
-    : defaultCenter;
-
-  const zoom = location.state?.zoom ?? defaultZoom;
+  const [mapStyle, setMapStyle] = useState(
+    "mapbox://styles/mapbox/outdoors-v12?optimize=true"
+  );
 
   // Fetch cave data
   useEffect(() => {
@@ -35,15 +29,15 @@ export default function MapView() {
     fetchCaves();
   }, []);
 
-  // Initialize Mapbox map
+  // Initialize Mapbox map on mount
   useEffect(() => {
     if (!mapContainer.current) return;
 
     const map = new mapboxgl.Map({
       container: mapContainer.current,
       style: mapStyle,
-      center,
-      zoom,
+      center: center,
+      zoom: zoom,
     });
 
     mapRef.current = map;
@@ -51,7 +45,22 @@ export default function MapView() {
     return () => {
       map.remove();
     };
+  }, []); // run only once on mount
+
+  // Update map center and zoom when props change
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    mapRef.current.setCenter(center);
+    mapRef.current.setZoom(zoom);
   }, [center, zoom]);
+
+  // Update map style when changed
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    mapRef.current.setStyle(mapStyle);
+  }, [mapStyle]);
 
   // Add markers when caves update
   useEffect(() => {
@@ -59,20 +68,24 @@ export default function MapView() {
 
     const map = mapRef.current;
 
+    // Clear previous markers if needed
+    // Optional: you can store markers in ref and clear them here to avoid duplicates
+    // For simplicity, we'll just add new markers on update
+
     caves.forEach((cave) => {
       const popup = new mapboxgl.Popup({
         offset: 25,
         closeButton: false,
       }).setHTML(`
-        <div class="relative text-sm font-sans p-2">
-          <button id="custom-close" class="absolute top-1 right-1 text-gray-500 hover:text-black text-xl font-bold">&times;</button>
-          <h1 class="text-lg font-semibold mb-1">${cave.name}</h1>
-          <p><span class="font-medium">Depth:</span> ${cave.depth || "N/A"}</p>
-          <p><span class="font-medium">Length:</span> ${cave.length || "N/A"}</p>
-          <p><span class="font-medium">Altitude:</span> ${cave.altitude || "N/A"}</p>
-          <p><span class="font-medium">Coordinates:</span> ${cave.lng.toFixed(4)}, ${cave.lat.toFixed(4)}</p>
-        </div>
-      `);
+          <div class="relative text-sm font-sans p-2">
+            <button id="custom-close" class="absolute top-1 right-1 text-gray-500 hover:text-black text-xl font-bold">&times;</button>
+            <h1 class="text-lg font-semibold mb-1">${cave.name}</h1>
+            <p><span class="font-medium">Depth:</span> ${cave.depth || "N/A"}</p>
+            <p><span class="font-medium">Length:</span> ${cave.length || "N/A"}</p>
+            <p><span class="font-medium">Altitude:</span> ${cave.altitude || "N/A"}</p>
+            <p><span class="font-medium">Coordinates:</span> ${cave.lng.toFixed(4)}, ${cave.lat.toFixed(4)}</p>
+          </div>
+        `);
 
       const marker = new mapboxgl.Marker()
         .setLngLat([cave.lng, cave.lat])

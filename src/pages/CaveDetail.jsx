@@ -214,13 +214,14 @@ export default function CaveDetail() {
                 {/* Internal MapView */}
                 <button
                   onClick={() =>
-                    navigate("/map", { state: { lat: cave.lat, lng: cave.lng, zoom: 15} })
+                    navigate("/map", { state: { center: [cave.lng, cave.lat], zoom: 15 } })
                   }
                   className="inline-flex items-center px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
                 >
                   <MapPinIcon className="w-5 h-5 mr-2" />
                   View on Cave Map
                 </button>
+
               </div>
             )}
 
