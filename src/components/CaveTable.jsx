@@ -60,11 +60,25 @@ const CaveTable = ({ caves = [] }) => {
                                 {getSortIcon('name')}
                             </div>
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Zone
+                        <th
+                            scope="col"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => handleSort('zone')}
+                        >
+                            <div className="flex items-center space-x-1">
+                                <span>Zone</span>
+                                {getSortIcon('zone')}
+                            </div>
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Code
+                        <th
+                            scope="col"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => handleSort('code')}
+                        >
+                            <div className="flex items-center space-x-1">
+                                <span>Code</span>
+                                {getSortIcon('code')}
+                            </div>
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             GPS N
@@ -104,34 +118,35 @@ const CaveTable = ({ caves = [] }) => {
                         </th>
                     </tr>
                 </thead>
+
                 <tbody className="bg-white divide-y divide-gray-200">
                     {sortedCaves.length > 0 ? (
                         sortedCaves.map((cave, index) => (
-                            <tr key={cave.id || index} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <tr key={cave.id || index} className="hover:bg-gray-50 ">
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                     <Link to={`/cave/${cave.id}`} className="text-blue-600 hover:underline">
                                         {cave.name}
                                     </Link>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.zone}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.code}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.gpsN}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.gpsE}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.asl}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.length}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-gray-500">
                                     {cave.depth}
                                 </td>
                             </tr>

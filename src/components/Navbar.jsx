@@ -12,10 +12,10 @@ export default function Navbar() {
   const navigation = [
     { name: 'Home', href: '/', current: location.pathname === '/' },
     { name: 'Map', href: '/map', current: location.pathname === '/map' },
-    { name: 'Database', href: '/caves', current: location.pathname === '/caves' },
+    { name: 'Cadaster', href: '/caves', current: location.pathname === '/caves' },
     { name: 'Upload', href: '/upload', current: location.pathname === '/upload' }
   ]
-  
+
   return (
     <Disclosure as="nav" className="bg-gray-800">
       <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">

@@ -1,0 +1,9 @@
+{
+  "hosting": {
+    "site": "cavemap",
+    "public": "dist",
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
+}

@@ -48,7 +48,7 @@ export default function Database() {
 
   return (
     <div className="max-w-7xl mx-auto bg-white p-6 rounded shadow">
-      <h2 className="text-2xl font-semibold mb-6">Cave Database</h2>
+      <h2 className="text-2xl font-semibold mb-6">Cadaster</h2>
       <CaveTable caves={caves} />
     </div>
   );
