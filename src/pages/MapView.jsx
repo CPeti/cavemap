@@ -39,8 +39,19 @@ export default function MapView() {
       center: center,
       zoom: zoom,
     });
-
     mapRef.current = map;
+    
+    mapRef.current.on('style.load', () => {
+      mapRef.current.addSource('mapbox-dem', {
+        type: 'raster-dem',
+        url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+        tileSize: 512,
+        maxzoom: 14
+      });
+      mapRef.current.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+    });
+
+    mapRef.current.addControl(new mapboxgl.NavigationControl());
 
     return () => {
       map.remove();
