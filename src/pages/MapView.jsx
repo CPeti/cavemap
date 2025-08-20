@@ -243,7 +243,7 @@ export default function MapView() {
                         "case",
                         ["get", "selected"],
                         8,  // Larger size for selected marker
-                        6   // Default size for unselected markers
+                        7   // Default size for unselected markers
                     ],
                     "circle-stroke-width": [
                         "case",

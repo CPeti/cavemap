@@ -37,132 +37,150 @@ const CaveTable = ({ caves = [] }) => {
 
     const getSortIcon = (columnKey) => {
         if (sortConfig.key !== columnKey) {
-            return <ChevronUpIcon className="w-4 h-4 text-gray-300" />
+            return <ChevronUpIcon className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         }
 
         return sortConfig.direction === 'asc'
-            ? <ChevronUpIcon className="w-4 h-4 text-gray-900" />
-            : <ChevronDownIcon className="w-4 h-4 text-gray-900" />
+            ? <ChevronUpIcon className="w-4 h-4 text-blue-600" />
+            : <ChevronDownIcon className="w-4 h-4 text-blue-600" />
     }
 
     return (
-        <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                    <tr>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('name')}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <span>Name</span>
-                                {getSortIcon('name')}
-                            </div>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('zone')}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <span>Zone</span>
-                                {getSortIcon('zone')}
-                            </div>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('code')}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <span>Code</span>
-                                {getSortIcon('code')}
-                            </div>
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            GPS N
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            GPS E
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('asl')}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <span>ASL</span>
-                                {getSortIcon('asl')}
-                            </div>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('length')}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <span>Length</span>
-                                {getSortIcon('length')}
-                            </div>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('depth')}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <span>Depth</span>
-                                {getSortIcon('depth')}
-                            </div>
-                        </th>
-                    </tr>
-                </thead>
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
+            {/* Material Design elevation and rounded corners */}
+            <div className="overflow-x-auto">
+                <table className="min-w-full">
+                    <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('name')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Name</span>
+                                    {getSortIcon('name')}
+                                </div>
+                            </th>
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('zone')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Zone</span>
+                                    {getSortIcon('zone')}
+                                </div>
+                            </th>
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('code')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Code</span>
+                                    {getSortIcon('code')}
+                                </div>
+                            </th>
+                            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                                GPS N
+                            </th>
+                            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                                GPS E
+                            </th>
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('asl')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>ASL</span>
+                                    {getSortIcon('asl')}
+                                </div>
+                            </th>
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('length')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Length</span>
+                                    {getSortIcon('length')}
+                                </div>
+                            </th>
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('depth')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Depth</span>
+                                    {getSortIcon('depth')}
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
 
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {sortedCaves.length > 0 ? (
-                        sortedCaves.map((cave, index) => (
-                            <tr key={cave.id || index} className="hover:bg-gray-50 ">
-                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                    <Link to={`/cave/${cave.id}`} className="text-blue-600 hover:underline">
-                                        {cave.name}
-                                    </Link>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.zone}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.code}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.gpsN}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.gpsE}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.asl}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.length}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {cave.depth}
+                    <tbody className="divide-y divide-gray-100">
+                        {sortedCaves.length > 0 ? (
+                            sortedCaves.map((cave, index) => (
+                                <tr 
+                                    key={cave.id || index} 
+                                    className="hover:bg-blue-50 transition-colors duration-150 group"
+                                >
+                                    <td className="px-6 py-4">
+                                        <Link 
+                                            to={`/cave/${cave.id}`} 
+                                            className="text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors duration-150 hover:underline"
+                                        >
+                                            {cave.name}
+                                        </Link>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        {cave.zone}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-mono">
+                                        {cave.code}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-mono">
+                                        {cave.gpsN}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-mono">
+                                        {cave.gpsE}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        {cave.asl}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        {cave.length}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        {cave.depth}
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="8" className="px-6 py-16 text-center">
+                                    <div className="flex flex-col items-center space-y-3">
+                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m0 0v-2a2 2 0 012-2h2a2 2 0 012 2v2M6 11h8" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">No caves found</p>
+                                            <p className="text-sm text-gray-500">Try adjusting your search criteria</p>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
-                        ))
-                    ) : (
-                        <tr>
-                            <td colSpan="8" className="px-6 py-12 text-center text-sm text-gray-500">
-                                No caves found
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     )
 }
-
 
 export default CaveTable;
