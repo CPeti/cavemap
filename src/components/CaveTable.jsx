@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import PropTypes from 'prop-types';
 
 const CaveTable = ({ caves = [] }) => {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: null })
@@ -124,13 +125,13 @@ const CaveTable = ({ caves = [] }) => {
                     <tbody className="divide-y divide-gray-100">
                         {sortedCaves.length > 0 ? (
                             sortedCaves.map((cave, index) => (
-                                <tr 
-                                    key={cave.id || index} 
+                                <tr
+                                    key={cave.id || index}
                                     className="hover:bg-blue-50 transition-colors duration-150 group"
                                 >
                                     <td className="px-6 py-4">
-                                        <Link 
-                                            to={`/cave/${cave.id}`} 
+                                        <Link
+                                            to={`/cave/${cave.id}`}
                                             className="text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors duration-150 hover:underline"
                                         >
                                             {cave.name}
@@ -184,3 +185,19 @@ const CaveTable = ({ caves = [] }) => {
 }
 
 export default CaveTable;
+
+CaveTable.propTypes = {
+    caves: PropTypes.arrayOf(
+        PropTypes.shape({
+            id: PropTypes.string.isRequired,
+            name: PropTypes.string.isRequired,
+            zone: PropTypes.string,
+            code: PropTypes.string,
+            gpsN: PropTypes.string,
+            gpsE: PropTypes.string,
+            asl: PropTypes.number,
+            length: PropTypes.number,
+            depth: PropTypes.number,
+        })
+    ).isRequired,
+};
