@@ -5,7 +5,6 @@ import { useLocation } from 'react-router-dom'
 // Import the new components
 import Logo from './Logo'
 import NavLink from './NavLink'
-import IconButton from './IconButton'
 import MenuItemLink from './MenuItemLink'
 
 export default function Navbar() {
@@ -54,19 +53,20 @@ export default function Navbar() {
         <Disclosure as="nav" className="bg-white shadow-lg relative z-50">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div className="relative flex h-16 items-center justify-between">
-                    <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
+                    {/* Mobile: Left side with hamburger menu and logo */}
+                    <div className="flex items-center sm:flex-1 sm:items-stretch sm:justify-start">
                         {/* Mobile menu button */}
-                        <DisclosureButton className="group relative inline-flex items-center justify-center rounded-xl p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition-all duration-200">
-                            <span className="absolute -inset-0.5" />
-                            <span className="sr-only">Open main menu</span>
-                            <Bars3Icon aria-hidden="true" className="block w-6 h-6 group-data-open:hidden" />
-                            <XMarkIcon aria-hidden="true" className="hidden w-6 h-6 group-data-open:block" />
-                        </DisclosureButton>
-                    </div>
+                        <div className="flex items-center sm:hidden">
+                            <DisclosureButton className="group relative inline-flex items-center justify-center rounded-xl p-1.5 sm:p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition-all duration-200">
+                                <span className="absolute -inset-0.5" />
+                                <span className="sr-only">Open main menu</span>
+                                <Bars3Icon aria-hidden="true" className="block w-5 h-5 sm:w-6 sm:h-6 group-data-open:hidden" />
+                                <XMarkIcon aria-hidden="true" className="hidden w-5 h-5 sm:w-6 sm:h-6 group-data-open:block" />
+                            </DisclosureButton>
+                        </div>
 
-                    <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
-                        {/* Logo */}
-                        <div className="flex shrink-0 items-center">
+                        {/* Logo - positioned right after hamburger on mobile, normal position on desktop */}
+                        <div className="flex shrink-0 items-center ml-2 sm:ml-0">
                             <Logo />
                         </div>
 
@@ -87,19 +87,20 @@ export default function Navbar() {
                     </div>
 
                     {/* Right side actions */}
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                    <div className="flex items-center">
                         {/* Notifications */}
-                        <IconButton ariaLabel="View notifications">
-                            <BellIcon aria-hidden="true" className="w-5 h-5" />
-                        </IconButton>
+                        <button className="relative flex rounded-xl bg-gray-50 p-2 sm:p-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-sm hover:shadow-md" aria-label="View notifications">
+                            <span className="absolute -inset-1.5" />
+                            <BellIcon aria-hidden="true" className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </button>
 
                         {/* Profile dropdown */}
                         <Menu as="div" className="relative ml-3">
                             <div>
-                                <MenuButton className="relative flex rounded-xl bg-gray-50 p-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 shadow-sm hover:shadow-md">
+                                <MenuButton className="relative flex rounded-xl bg-gray-50 p-2 sm:p-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-sm hover:shadow-md">
                                     <span className="absolute -inset-1.5" />
                                     <span className="sr-only">Open user menu</span>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                 </MenuButton>
@@ -108,9 +109,9 @@ export default function Navbar() {
                                 transition
                                 className="absolute right-0 z-10 mt-3 w-56 origin-top-right rounded-2xl bg-white py-2 shadow-xl ring-1 ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-150 data-enter:ease-out data-leave:duration-100 data-leave:ease-in"
                             >
-                                <div className="px-4 py-3 border-b border-gray-100">
-                                    <p className="text-sm font-semibold text-gray-900">Signed in as</p>
-                                    <p className="text-sm text-gray-600 truncate">user@example.com</p>
+                                <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-gray-100">
+                                    <p className="text-xs sm:text-sm font-semibold text-gray-900">Signed in as</p>
+                                    <p className="text-xs sm:text-sm text-gray-600 truncate">user@example.com</p>
                                 </div>
                                 <div className="py-2">
                                     {userMenuItems.map((item) => (
