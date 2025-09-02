@@ -102,16 +102,12 @@ export default function MapView() {
             </div>
 
             {/* Map Controls */}
-            <div className={`absolute top-4 right-4 z-20 transition-all duration-300 ${
-                selectedCave && sidebarOpen ? 'md:right-4' : 'right-4'
-            }`}>
-                <MapControls
-                    mapStyle={mapStyle}
-                    onMapStyleChange={setMapStyle}
-                    is3D={is3D}
-                    onToggle3D={setIs3D}
-                />
-            </div>
+            <MapControls
+                mapStyle={mapStyle}
+                onMapStyleChange={setMapStyle}
+                is3D={is3D}
+                onToggle3D={setIs3D}
+            />
         </div>
     );
 }
