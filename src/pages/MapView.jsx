@@ -33,13 +33,9 @@ export default function MapView() {
         fetchCaves();
     }, []);
 
-    // Handle cave selection
-    // Handle cave selection
+    // Handle cave selection - FIXED
     const handleCaveSelect = (cave) => {
-        // If the same cave is clicked again, just ignore
-        if (selectedCave?.id === cave.id) return;
-
-        // If another cave is already selected, clear old KML before setting new one
+        // Always clear old KML data when selecting any cave
         if (selectedCave) {
             clearKmlData();
         }
@@ -48,7 +44,6 @@ export default function MapView() {
         setSidebarOpen(true);
     };
 
-
     const closeSidebar = () => {
         setSelectedCave(null);
         setSidebarOpen(false);
@@ -56,7 +51,7 @@ export default function MapView() {
     };
 
     // Use custom mapbox hook
-    const { mapContainer, toggle3D, clearKmlData } = useMapbox({
+    const { mapContainer, toggle3D, clearKmlData, mapRef } = useMapbox({
         center,
         zoom,
         mapStyle,
@@ -70,29 +65,53 @@ export default function MapView() {
         toggle3D(is3D);
     }, [is3D, mapStyle, toggle3D]);
 
+    // Handle map resize when sidebar opens/closes
+    useEffect(() => {
+        // Also listen for transition end events
+        const mapElement = mapRef.current.getContainer();
+        const handleTransitionEnd = () => {
+            mapRef.current?.resize();
+        };
+
+        mapElement.addEventListener('transitionend', handleTransitionEnd);
+
+        return () => {
+            mapElement.removeEventListener('transitionend', handleTransitionEnd);
+        };
+    }, [sidebarOpen, mapRef]);
+
     return (
         <div className="relative w-full h-[calc(100vh-64px)] overflow-hidden">
-            {/* Sidebar */}
-            <MapSidebar
-                selectedCave={selectedCave}
-                isOpen={sidebarOpen}
-                onClose={closeSidebar}
-            />
-
-            {/* Map Controls */}
-            <MapControls
-                mapStyle={mapStyle}
-                onMapStyleChange={setMapStyle}
-                is3D={is3D}
-                onToggle3D={setIs3D}
-            />
-
             {/* Map container */}
             <div
                 ref={mapContainer}
-                className={`h-full w-full transition-all duration-300 ${selectedCave && sidebarOpen ? 'md:ml-80 lg:ml-96' : ''
-                    }`}
+                className="absolute inset-0 h-full w-full"
             />
+
+            {/* Sidebar */}
+            <div className={`absolute top-0 left-0 h-full z-10 transform transition-transform duration-300 ${
+                selectedCave && sidebarOpen 
+                    ? 'translate-x-0' 
+                    : '-translate-x-full'
+            }`}>
+                <MapSidebar
+                    selectedCave={selectedCave}
+                    isOpen={sidebarOpen}
+                    onClose={closeSidebar}
+                />
+            </div>
+
+            {/* Map Controls */}
+            <div className={`absolute top-4 right-4 z-20 transition-all duration-300 ${
+                selectedCave && sidebarOpen ? 'md:right-4' : 'right-4'
+            }`}>
+                <MapControls
+                    mapStyle={mapStyle}
+                    onMapStyleChange={setMapStyle}
+                    is3D={is3D}
+                    onToggle3D={setIs3D}
+                />
+            </div>
         </div>
     );
 }
