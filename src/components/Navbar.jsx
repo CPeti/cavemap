@@ -147,31 +147,6 @@ export default function Navbar() {
                             </NavLink>
                         </DisclosureButton>
                     ))}
-
-                    {/* Mobile user section */}
-                    <div className="pt-4 pb-2 border-t border-gray-200 mt-4">
-                        <div className="flex items-center px-4 pb-3">
-                            <div className="flex-shrink-0">
-                                <UserAvatar showGradient={true} />
-                            </div>
-                            <div className="ml-3">
-                                <UserInfo />
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            {userMenuItems.map((item) => (
-                                <MenuItemLink
-                                    key={item.name}
-                                    href={item.href}
-                                    icon={item.icon}
-                                    variant={item.variant}
-                                    isMobile={true}
-                                >
-                                    {item.name}
-                                </MenuItemLink>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             </DisclosurePanel>
         </Disclosure>

@@ -7,7 +7,7 @@ export default function Logo() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             </div>
-            <div className="hidden sm:block">
+            <div>
                 <h1 className="text-xl font-bold text-gray-900">CaveDB</h1>
             </div>
         </div>
