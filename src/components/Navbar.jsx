@@ -6,8 +6,6 @@ import { useLocation } from 'react-router-dom'
 import Logo from './Logo'
 import NavLink from './NavLink'
 import IconButton from './IconButton'
-import UserAvatar from './UserAvatar'
-import UserInfo from './UserInfo'
 import MenuItemLink from './MenuItemLink'
 
 export default function Navbar() {

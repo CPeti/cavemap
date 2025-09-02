@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import CaveMeasurementCards from './CaveMeasurementCards';
 import SidebarLocationSection from './SidebarLocationSection';
 import SidebarAdditionalInfo from './SidebarAdditionalInfo';
+import PropTypes from 'prop-types';
 
 export default function MapSidebar({ selectedCave, isOpen, onClose }) {
     const navigate = useNavigate();
@@ -12,29 +13,21 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         <>
             {/* Backdrop for mobile when sidebar is open */}
             {isOpen && (
-                <div
-                    role="button"
-                    tabIndex={0}
+                <button
+                    type="button"
                     aria-label="Close sidebar backdrop"
-                    className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+                    className="fixed inset-0 bg-black bg-opacity-50 z-30"
                     onClick={onClose}
-                    onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onClose();
-                        }
-                    }}
                 />
             )}
 
             {/* Sidebar */}
             <div className={`
-        fixed top-0 left-0 h-full bg-white shadow-2xl z-40 transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        w-full sm:w-96 md:w-80 lg:w-96
-        md:relative md:translate-x-0 md:z-20 md:h-full
+        fixed top-0 left-0 h-full bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
+        sm:w-64 md:w-80 lg:w-96
         flex flex-col
         overflow-hidden
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
                 {/* Header */}
                 <div className="flex-shrink-0 bg-black px-6 py-4">
@@ -114,3 +107,18 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         </>
     );
 }
+
+MapSidebar.propTypes = {
+    selectedCave: PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        name: PropTypes.string.isRequired,
+        code: PropTypes.string,
+        depth: PropTypes.number,
+        length: PropTypes.number,
+        description: PropTypes.string,
+        lat: PropTypes.number,
+        lng: PropTypes.number,
+    }),
+    isOpen: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+};
