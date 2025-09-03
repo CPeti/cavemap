@@ -30,90 +30,69 @@ export default function PhotoModal({
             document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'unset';
         };
-    }, [selectedPhoto, photoIndex, handleKeyDown]);
+    }, [selectedPhoto, handleKeyDown]);
 
     if (!selectedPhoto) return null;
 
+    const validPhotos = Array.isArray(photos) ? photos : [];
+
     return (
         <div
-            className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center p-4"
+            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 z-[9999]"
             onClick={onClose}
         >
-            <div className="relative max-w-7xl max-h-full w-full h-full flex items-center justify-center">
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 z-10 p-3 bg-black bg-opacity-60 backdrop-blur-sm text-white rounded-full hover:bg-opacity-80 transition-all duration-200 shadow-lg"
-                >
-                    <XMarkIcon className="w-6 h-6" />
-                </button>
-
-                {/* Navigation Buttons */}
-                {photos.length > 1 && (
-                    <>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onNavigate('prev');
-                            }}
-                            disabled={photoIndex === 0}
-                            className="absolute left-6 z-10 p-4 bg-black bg-opacity-60 backdrop-blur-sm text-white rounded-full hover:bg-opacity-80 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg"
-                        >
-                            <ChevronLeftIcon className="w-6 h-6" />
-                        </button>
-
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onNavigate('next');
-                            }}
-                            disabled={photoIndex === photos.length - 1}
-                            className="absolute right-6 z-10 p-4 bg-black bg-opacity-60 backdrop-blur-sm text-white rounded-full hover:bg-opacity-80 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg"
-                        >
-                            <ChevronRightIcon className="w-6 h-6" />
-                        </button>
-                    </>
-                )}
+            {/* Modal Container */}
+            <div
+                className="relative bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-1 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+                    <div className="flex items-center space-x-3">
+                        {validPhotos.length > 1 && (
+                            <span className="text-sm font-medium text-gray-600">
+                                {photoIndex + 1} of {validPhotos.length}
+                            </span>
+                        )}
+                        {selectedPhoto.caption && (
+                            <h3 className="font-semibold text-gray-900 truncate">
+                                {selectedPhoto.caption}
+                            </h3>
+                        )}
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <XMarkIcon className="w-5 h-5 text-gray-600" />
+                    </button>
+                </div>
 
                 {/* Image Container */}
-                <div
-                    className="relative max-w-full max-h-full flex items-center justify-center"
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.stopPropagation();
-                        }
-                    }}
-                >
+                <div className="relative flex items-center justify-center bg-gray-50 p-4">
                     <img
                         src={selectedPhoto.url}
-                        alt={selectedPhoto.caption || selectedPhoto.filename || 'Cave photo'}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                        alt={selectedPhoto.caption || selectedPhoto.filename || 'Photo'}
+                        className="max-h-[70vh] object-contain rounded-lg shadow-md"
                     />
 
-                    {/* Photo Info */}
-                    {(selectedPhoto.caption || selectedPhoto.photographer) && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-80 backdrop-blur-sm text-white p-6 rounded-b-lg">
-                            {selectedPhoto.caption && (
-                                <h3 className="font-semibold text-xl mb-2">{selectedPhoto.caption}</h3>
-                            )}
-                            <div className="flex justify-between items-center text-sm text-gray-300">
-                                <div>
-                                    {selectedPhoto.photographer && (
-                                        <span className="font-medium">Photo by {selectedPhoto.photographer}</span>
-                                    )}
-                                </div>
-                                <div>
-                                    {photos.length > 1 && (
-                                        <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full font-medium">
-                                            {photoIndex + 1} of {photos.length}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                    {/* Navigation Buttons */}
+                    {validPhotos.length > 1 && (
+                        <>
+                            <button
+                                onClick={() => onNavigate('prev')}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 p-3 bg-white/80 shadow-md rounded-full hover:bg-white transition"
+                            >
+                                <ChevronLeftIcon className="w-6 h-6 text-gray-700" />
+                            </button>
+
+                            <button
+                                onClick={() => onNavigate('next')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-white/80 shadow-md rounded-full hover:bg-white transition"
+                            >
+                                <ChevronRightIcon className="w-6 h-6 text-gray-700" />
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

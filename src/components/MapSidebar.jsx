@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import CaveMeasurementCards from './CaveMeasurementCards';
 import SidebarLocationSection from './SidebarLocationSection';
 import SidebarAdditionalInfo from './SidebarAdditionalInfo';
+import PhotoGallery from "./PhotoGallery";
+import PhotoModal from './PhotoModal';
 import PropTypes from 'prop-types';
 
 export default function MapSidebar({ selectedCave, isOpen, onClose }) {
@@ -17,6 +19,10 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
     const [translateY, setTranslateY] = useState(window.innerHeight);
     const [isDragging, setIsDragging] = useState(false);
     const [isFullyOpen, setIsFullyOpen] = useState(false);
+
+    // Photo modal state
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
+    const [photoIndex, setPhotoIndex] = useState(0);
 
     const startPointerYRef = useRef(0);
     const startTranslateYRef = useRef(0);
@@ -135,6 +141,111 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         };
     }, [isDragging, translateY]);
 
+    // Parse photos properly
+    let photos = [];
+    if (Array.isArray(selectedCave?.photos)) {
+        photos = selectedCave.photos;
+    } else if (typeof selectedCave?.photos === "string") {
+        try {
+            photos = JSON.parse(selectedCave.photos);
+        } catch (e) {
+            console.error("Invalid JSON in photos:", e);
+        }
+    }
+
+    // Photo modal functions - FIXED
+    const openPhotoModal = (photo, index) => {
+        setSelectedPhoto(photo);
+        setPhotoIndex(index);
+    };
+
+    const closePhotoModal = () => {
+        setSelectedPhoto(null);
+        setPhotoIndex(0);
+    };
+
+    const navigatePhoto = (direction) => {
+        if (!photos || photos.length === 0) return;
+        
+        let newIndex;
+        if (direction === 'next') {
+            newIndex = photoIndex < photos.length - 1 ? photoIndex + 1 : 0; // Loop to start
+        } else if (direction === 'prev') {
+            newIndex = photoIndex > 0 ? photoIndex - 1 : photos.length - 1; // Loop to end
+        } else {
+            return;
+        }
+        
+        setPhotoIndex(newIndex);
+        setSelectedPhoto(photos[newIndex]);
+    };
+
+    // Compact Photo Gallery Component
+    const SidebarPhotoGallery = ({ photos }) => {
+        if (!photos || photos.length === 0) return null;
+
+        return (
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Photos ({photos.length})
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                    {photos.slice(0, 4).map((photo, index) => {
+                        // Handle both old and new photo structures
+                        const photoUrl = photo.url;
+                        const photoCaption = photo.caption || photo.filename || `Cave photo ${index + 1}`;
+
+                        if (!photoUrl) {
+                            console.warn('Photo missing URL:', photo);
+                            return null;
+                        }
+
+                        return (
+                            <div
+                                key={photo.storageRef || photo.url || index}
+                                className="relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100 group"
+                                onClick={() => openPhotoModal(photo, index)}
+                            >
+                                <img
+                                    src={photoUrl}
+                                    alt={photoCaption}
+                                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+                                    <svg
+                                        className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </div>
+                                {/* Show count on last image if there are more than 4 */}
+                                {index === 3 && photos.length > 4 && (
+                                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                                        <span className="text-white font-semibold text-lg">
+                                            +{photos.length - 4}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+                {photos.length > 4 && (
+                    <button
+                        onClick={() => navigate(`/cave/${selectedCave.id}`)}
+                        className="w-full mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
+                    >
+                        View all {photos.length} photos →
+                    </button>
+                )}
+            </div>
+        );
+    };
+
     if (!selectedCave) return null;
 
     return (
@@ -177,6 +288,10 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                             depth={selectedCave.depth}
                             length={selectedCave.length}
                         />
+
+                        {/* Photo Gallery */}
+                        <SidebarPhotoGallery photos={photos} />
+
                         <SidebarLocationSection cave={selectedCave} />
                         {selectedCave.description && (
                             <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -285,6 +400,10 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                     >
                         <div className="space-y-4">
                             <CaveMeasurementCards depth={selectedCave.depth} length={selectedCave.length} />
+
+                            {/* Photo Gallery for Mobile */}
+                            <SidebarPhotoGallery photos={photos} />
+
                             <SidebarLocationSection cave={selectedCave} />
                             {selectedCave.description && (
                                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
@@ -293,22 +412,6 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                                 </div>
                             )}
                             <SidebarAdditionalInfo cave={selectedCave} />
-                            {/* Add some extra content for testing scroll */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <h3 className="text-lg font-semibold text-blue-900 mb-3">Additional Information</h3>
-                                <p className="text-blue-700 leading-relaxed text-sm">
-                                    This is additional content to test the scrolling behavior. When the bottom sheet is fully expanded,
-                                    you should be able to scroll through this content smoothly.
-                                </p>
-                            </div>
-                            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                                <h3 className="text-lg font-semibold text-green-900 mb-3">More Content</h3>
-                                <p className="text-green-700 leading-relaxed text-sm">
-                                    Even more content to ensure we have enough to scroll through. The sheet should only be draggable
-                                    from the handle at the top, and when fully expanded, dragging down from the top of the content
-                                    area should start collapsing the sheet.
-                                </p>
-                            </div>
 
                             {/* Buttons inside scrollable area with proper spacing */}
                             <div className="pt-4 pb-8">
@@ -343,6 +446,15 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                     </div>
                 </div>
             )}
+
+            {/* Photo Modal - FIXED Z-INDEX */}
+            <PhotoModal
+                selectedPhoto={selectedPhoto}
+                photos={photos}
+                photoIndex={photoIndex}
+                onClose={closePhotoModal}
+                onNavigate={navigatePhoto}
+            />
         </>
     );
 }
@@ -357,6 +469,12 @@ MapSidebar.propTypes = {
         description: PropTypes.string,
         lat: PropTypes.number,
         lng: PropTypes.number,
+        photos: PropTypes.arrayOf(PropTypes.shape({
+            url: PropTypes.string.isRequired,
+            caption: PropTypes.string,
+            filename: PropTypes.string,
+            photographer: PropTypes.string,
+        })),
     }),
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,

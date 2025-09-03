@@ -11,7 +11,6 @@ export default function PhotoThumbnail({ photo, index, onClick }) {
                 src={photo.url}
                 alt={photo.caption || photo.filename || `Cave photo ${index + 1}`}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                onLoad={() => console.log(`Image ${index} loaded successfully`)}
                 onError={(e) => {
                     console.error(`Image ${index} failed to load:`, photo.url);
                     e.target.style.backgroundColor = '#ef4444';
