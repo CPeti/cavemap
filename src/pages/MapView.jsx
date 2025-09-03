@@ -33,7 +33,7 @@ export default function MapView() {
         fetchCaves();
     }, []);
 
-    // Handle cave selection - FIXED
+    // Handle cave selection
     const handleCaveSelect = (cave) => {
         // Always clear old KML data when selecting any cave
         if (selectedCave) {
@@ -67,39 +67,61 @@ export default function MapView() {
 
     // Handle map resize when sidebar opens/closes
     useEffect(() => {
-        // Also listen for transition end events
-        const mapElement = mapRef.current.getContainer();
-        const handleTransitionEnd = () => {
-            mapRef.current?.resize();
+        if (!mapRef.current) return;
+
+        const handleResize = () => {
+            // Small delay to ensure transitions complete
+            setTimeout(() => {
+                mapRef.current?.resize();
+            }, 350);
         };
 
-        mapElement.addEventListener('transitionend', handleTransitionEnd);
-
-        return () => {
-            mapElement.removeEventListener('transitionend', handleTransitionEnd);
-        };
+        // Only handle resize on desktop when sidebar state changes
+        const mediaQuery = window.matchMedia('(min-width: 768px)');
+        if (mediaQuery.matches) {
+            handleResize();
+        }
     }, [sidebarOpen, mapRef]);
 
+    // Prevent scrolling and ensure proper mobile viewport handling
+    useEffect(() => {
+        // Set viewport height CSS custom property for mobile browsers
+        const setVH = () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+        
+        setVH();
+        window.addEventListener('resize', setVH);
+        window.addEventListener('orientationchange', setVH);
+        
+        // Prevent body scrolling
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        
+        return () => {
+            window.removeEventListener('resize', setVH);
+            window.removeEventListener('orientationchange', setVH);
+            // Reset body scrolling when component unmounts
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        };
+    }, []);
+
     return (
-        <div className="relative w-full h-[calc(100vh-64px)] overflow-hidden">
-            {/* Map container */}
+        <div className="fixed inset-0 top-16 overflow-hidden">
+            {/* Map container - NO margin changes to prevent black screen */}
             <div
                 ref={mapContainer}
                 className="absolute inset-0 h-full w-full"
             />
 
-            {/* Sidebar */}
-            <div className={`absolute top-0 left-0 h-full z-10 transform transition-transform duration-300 ${
-                selectedCave && sidebarOpen 
-                    ? 'translate-x-0' 
-                    : '-translate-x-full'
-            }`}>
-                <MapSidebar
-                    selectedCave={selectedCave}
-                    isOpen={sidebarOpen}
-                    onClose={closeSidebar}
-                />
-            </div>
+            {/* Sidebar - let it handle its own positioning */}
+            <MapSidebar
+                selectedCave={selectedCave}
+                isOpen={sidebarOpen}
+                onClose={closeSidebar}
+            />
 
             {/* Map Controls */}
             <MapControls
