@@ -32,6 +32,20 @@ spec:
           env:
             - name: DB_URL
               value: "postgresql+asyncpg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw:5432/{{ .Values.db.database }}"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
