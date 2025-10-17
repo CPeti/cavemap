@@ -1,0 +1,32 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cave-service-ingress
+  namespace: default
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: default-strip-api@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: frontend.opencave.local
+      http:
+        paths:
+          - path: /api/caves
+            pathType: Prefix
+            backend:
+              service:
+                name: cave-service
+                port:
+                  number: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-api
+  namespace: default
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+{{- end }}

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cave-service
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.caveService.replicas }}
+  selector:
+    matchLabels:
+      app: cave-service
+  template:
+    metadata:
+      labels:
+        app: cave-service
+    spec:
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ .Values.db.name }}-rw.{{ .Values.namespace }}.svc.cluster.local -p 5432; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+      containers:
+        - name: cave-service
+          image: {{ .Values.caveService.image }}
+          ports:
+            - containerPort: {{ .Values.caveService.containerPort }}
+          env:
+            - name: DB_URL
+              value: "postgresql+asyncpg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw:5432/{{ .Values.db.database }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cave-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: cave-service
+  ports:
+    - port: {{ .Values.caveService.port }}
+      targetPort: {{ .Values.caveService.containerPort }}
+      protocol: TCP
+  type: ClusterIP

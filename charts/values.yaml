@@ -1,0 +1,25 @@
+namespace: default
+
+db:
+  name: cave-db
+  user: user
+  password: password
+  database: cavedb
+  storage: 1Gi
+  replicas: 1
+
+caveService:
+  image: cpeti/cave-service:latest
+  replicas: 1
+  port: 80
+  containerPort: 8000
+
+frontend:
+  image: cpeti/cave-frontend:latest
+  replicas: 1
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  host: frontend.opencave.local
