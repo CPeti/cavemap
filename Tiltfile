@@ -1,6 +1,7 @@
 docker_build(
     'cave-service-image',
     './services/cave-service',
+    dockerfile='./services/cave-service/Dockerfile',
     live_update=[
         sync('./services/cave-service', '/app'),
     ]
@@ -20,7 +21,7 @@ k8s_yaml(
         './charts',                               
         values=['./charts/values.yaml'],
         set=[
-            'cave-service.image=cave-service-image',
+            'caveService.image=cave-service-image',
             'frontend.image=frontend-image',
         ]
     )
