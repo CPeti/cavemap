@@ -1,0 +1,16 @@
+FROM node:18-alpine AS dev
+WORKDIR /app
+
+# Install deps
+COPY package*.json ./
+RUN npm install
+
+# Copy source
+COPY . .
+
+# Expose Vite/React dev server port (default 5173 or 3000)
+EXPOSE 80
+
+# Dev command (Vite) — change to "npm start" for CRA
+CMD ["npm", "run", "dev", "--", "--port", "80", "--host", "0.0.0.0"]
+

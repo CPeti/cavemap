@@ -6,7 +6,8 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    host: '192.168.1.208',
-    port: 3000
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: ['frontend.opencave.local', 'localhost'], // allow your hostname
   }
 });
