@@ -48,7 +48,6 @@ const CaveTable = ({ caves = [] }) => {
 
     return (
         <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
-            {/* Material Design elevation and rounded corners */}
             <div className="overflow-x-auto">
                 <table className="min-w-full">
                     <thead>
@@ -83,20 +82,24 @@ const CaveTable = ({ caves = [] }) => {
                                     {getSortIcon('code')}
                                 </div>
                             </th>
-                            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                GPS N
-                            </th>
-                            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                GPS E
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('first_surveyed')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>First Surveyed</span>
+                                    {getSortIcon('first_surveyed')}
+                                </div>
                             </th>
                             <th
                                 scope="col"
                                 className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
-                                onClick={() => handleSort('asl')}
+                                onClick={() => handleSort('last_surveyed')}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span>ASL</span>
-                                    {getSortIcon('asl')}
+                                    <span>Last Surveyed</span>
+                                    {getSortIcon('last_surveyed')}
                                 </div>
                             </th>
                             <th
@@ -112,11 +115,21 @@ const CaveTable = ({ caves = [] }) => {
                             <th
                                 scope="col"
                                 className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
-                                onClick={() => handleSort('depth')}
+                                onClick={() => handleSort('vertical_extent')}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span>Depth</span>
-                                    {getSortIcon('depth')}
+                                    <span>Vertical Extent</span>
+                                    {getSortIcon('vertical_extent')}
+                                </div>
+                            </th>
+                            <th
+                                scope="col"
+                                className="group px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors duration-150 select-none"
+                                onClick={() => handleSort('horizontal_extent')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Horizontal Extent</span>
+                                    {getSortIcon('horizontal_extent')}
                                 </div>
                             </th>
                         </tr>
@@ -143,20 +156,20 @@ const CaveTable = ({ caves = [] }) => {
                                     <td className="px-6 py-4 text-sm text-gray-700 font-mono">
                                         {cave.code}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700 font-mono">
-                                        {cave.gpsN}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700 font-mono">
-                                        {cave.gpsE}
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        {cave.first_surveyed}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
-                                        {cave.asl}
+                                        {cave.last_surveyed}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
                                         {cave.length}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
-                                        {cave.depth}
+                                        {cave.vertical_extent}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        {cave.horizontal_extent}
                                     </td>
                                 </tr>
                             ))
@@ -193,11 +206,11 @@ CaveTable.propTypes = {
             name: PropTypes.string.isRequired,
             zone: PropTypes.string,
             code: PropTypes.string,
-            gpsN: PropTypes.string,
-            gpsE: PropTypes.string,
-            asl: PropTypes.number,
+            first_surveyed: PropTypes.string,
+            last_surveyed: PropTypes.string,
             length: PropTypes.number,
-            depth: PropTypes.number,
+            vertical_extent: PropTypes.number,
+            horizontal_extent: PropTypes.number,
         })
     ).isRequired,
 };

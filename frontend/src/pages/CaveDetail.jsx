@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 
-// Import new components
+// Import UI components
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import CaveHeader from '../components/CaveHeader';
@@ -28,14 +26,15 @@ export default function CaveDetail() {
     useEffect(() => {
         async function fetchCave() {
             try {
-                const docRef = doc(db, "caves", caveId);
-                const docSnap = await getDoc(docRef);
+                const res = await fetch(`http://frontend.opencave.local/api/caves/${caveId}`);
 
-                if (docSnap.exists()) {
-                    setCave({ id: docSnap.id, ...docSnap.data() });
-                } else {
-                    setError("Cave not found");
+                if (!res.ok) {
+                    throw new Error("Failed to fetch cave");
                 }
+
+                const data = await res.json();
+                setCave(data);
+
             } catch (err) {
                 console.error("Error fetching cave:", err);
                 setError("Failed to load cave data");

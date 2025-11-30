@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
 import CaveTable from "../components/CaveTable";
 
 export default function Database() {
@@ -11,22 +9,24 @@ export default function Database() {
     useEffect(() => {
         async function fetchCaves() {
             try {
-                const snapshot = await getDocs(collection(db, "caves"));
-                const caveData = snapshot.docs.map((doc) => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        name: data.name || "Unknown Cave",
-                        zone: data.zone || "Unknown",
-                        code: data.code || "",
-                        gpsN: data.lat ? data.lat.toFixed(6) : "",
-                        gpsE: data.lng ? data.lng.toFixed(6) : "",
-                        asl: data.asl || data.altitude || "",
-                        length: data.length || "",
-                        depth: data.depth || ""
-                    };
-                });
-                setCaves(caveData);
+                const response = await fetch("http://frontend.opencave.local/api/caves/");
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const caveData = await response.json();
+                // Transform API data if necessary to match CaveTable props
+                const transformed = caveData.map((cave) => ({
+                    id: cave.cave_id,
+                    name: cave.name || "Unknown Cave",
+                    zone: cave.zone || "Unknown",
+                    code: cave.code || "",
+                    first_surveyed: cave.first_surveyed || "",
+                    last_surveyed: cave.last_surveyed || "",
+                    length: cave.length || "",
+                    vertical_extent: cave.vertical_extent || "",
+                    horizontal_extent: cave.horizontal_extent || "",
+                }));
+                setCaves(transformed);
             } catch (error) {
                 console.error("Error fetching caves:", error);
             } finally {
