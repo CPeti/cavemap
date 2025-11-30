@@ -1,6 +1,5 @@
-# models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from src.models.base import Base
 
 class Cave(Base):
@@ -8,10 +7,13 @@ class Cave(Base):
 
     cave_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, unique=True)
-    code = Column(String)
-    depth_m = Column(Float)
-    length_m = Column(Float)
     zone = Column(String)
+    code = Column(String)
+    first_surveyed = Column(String)
+    last_surveyed = Column(String)
+    length: Mapped[float] = mapped_column(Float)
+    vertical_extent: Mapped[float] = mapped_column(Float)
+    horizontal_extent: Mapped[float] = mapped_column(Float)
 
     entrances = relationship("Entrance", back_populates="cave")
 
@@ -22,8 +24,8 @@ class Entrance(Base):
     entrance_id = Column(Integer, primary_key=True, index=True)
     cave_id = Column(Integer, ForeignKey("caves.cave_id"), nullable=False)
     name = Column(String)
-    gps_n = Column(Float, nullable=False)
-    gps_e = Column(Float, nullable=False)
-    asl_m = Column(Float)
+    gps_n: Mapped[float] = mapped_column(Float, nullable=False)
+    gps_e: Mapped[float] = mapped_column(Float, nullable=False)
+    asl: Mapped[float] = mapped_column(Float)
 
     cave = relationship("Cave", back_populates="entrances")

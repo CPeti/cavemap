@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from src.routes import caves
 from src.db.connection import init_db
 import asyncio
@@ -20,20 +21,27 @@ async def lifespan(app: FastAPI):
             if attempt < max_retries - 1:
                 wait_time = retry_delay * (1.5 ** attempt)
                 print(f"⚠ Database connection failed (attempt {attempt + 1}/{max_retries})")
-                print(f"connecting to {settings.database_url}")
+                print(f"connecting to {getattr(settings, 'database_url', '<unknown>')}")
                 print(f"  Retrying in {wait_time:.1f}s... Error: {str(e)[:100]}")
                 await asyncio.sleep(wait_time)
             else:
                 print(f"✗ Failed to initialize database after {max_retries} attempts")
                 raise
-    
     yield
 
 app = FastAPI(
     title="Cave Database API", 
     lifespan=lifespan,
-    description="API for managing cave and entrance data", 
+    description="API for managing cave and entrance data",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: Restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(caves.router, prefix="/caves", tags=["Caves"])

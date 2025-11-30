@@ -20,10 +20,14 @@ class EntranceRead(EntranceBase):
 
 class CaveBase(BaseModel):
     name: str
-    depth_m: Optional[float] = None
-    length_m: Optional[float] = None
     zone: Optional[str] = None
     code: Optional[str] = None
+    first_surveyed: Optional[str] = None
+    last_surveyed: Optional[str] = None
+    length: Optional[float] = None
+    vertical_extent: Optional[float] = None
+    horizontal_extent: Optional[float] = None
+    
 
 class CaveCreate(CaveBase):
     entrances: Optional[List[EntranceCreate]] = None

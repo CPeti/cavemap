@@ -7,4 +7,4 @@ class Settings(BaseSettings):
         env_file = ".env"
         extra = "ignore"
 
-settings = Settings()
+settings = Settings(db_url="you forgot to set the database url environment variable!")

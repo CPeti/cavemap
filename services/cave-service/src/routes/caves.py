@@ -5,9 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from src.db.connection import init_db, get_session
+from src.db.connection import get_session
 
 router = APIRouter()
+
+# --- Health check endpoint (for K8s probes) ---
+@router.get("/health")
+def health():
+    return {"status": "ok"}
 
 @router.post("/", response_model=CaveRead, status_code=status.HTTP_201_CREATED)
 async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_session)):
@@ -24,10 +29,13 @@ async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_sess
     # Create cave
     new_cave = Cave(
         name=cave.name,
-        depth_m=cave.depth_m,
-        length_m=cave.length_m,
         zone=cave.zone,
-        code=cave.code
+        code=cave.code,
+        first_surveyed=cave.first_surveyed,
+        last_surveyed=cave.last_surveyed,
+        length=cave.length,
+        vertical_extent=cave.vertical_extent,
+        horizontal_extent=cave.horizontal_extent
     )
     session.add(new_cave)
     
@@ -40,7 +48,7 @@ async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_sess
                 name=ent.name,
                 gps_n=ent.gps_n,
                 gps_e=ent.gps_e,
-                asl_m=ent.asl_m
+                asl=ent.asl_m
             )
             for ent in cave.entrances
         ]
