@@ -1,9 +1,5 @@
 namespace: default
 
-operator:
-  name: cnpg-operator
-  namespace: cnpg
-
 db:
   name: cave-db
   user: user
@@ -28,5 +24,5 @@ ingress:
   tls:
     enabled: true
   className: traefik
-  host: frontend.opencave.dev
+  host: localhost.me
   tlsSecret: frontend-cert
