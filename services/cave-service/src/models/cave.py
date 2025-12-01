@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from src.models.base import Base
+from typing import Optional
 
 class Cave(Base):
     __tablename__ = "caves"
@@ -11,9 +12,9 @@ class Cave(Base):
     code = Column(String)
     first_surveyed = Column(String)
     last_surveyed = Column(String)
-    length: Mapped[float] = mapped_column(Float)
-    vertical_extent: Mapped[float] = mapped_column(Float)
-    horizontal_extent: Mapped[float] = mapped_column(Float)
+    length: Mapped[Optional[float]] = mapped_column(Float)
+    vertical_extent: Mapped[Optional[float]] = mapped_column(Float)
+    horizontal_extent: Mapped[Optional[float]] = mapped_column(Float)
 
     entrances = relationship("Entrance", back_populates="cave")
 
@@ -26,6 +27,6 @@ class Entrance(Base):
     name = Column(String)
     gps_n: Mapped[float] = mapped_column(Float, nullable=False)
     gps_e: Mapped[float] = mapped_column(Float, nullable=False)
-    asl: Mapped[float] = mapped_column(Float)
+    asl_m: Mapped[Optional[float]] = mapped_column(Float)
 
     cave = relationship("Cave", back_populates="entrances")

@@ -48,7 +48,7 @@ async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_sess
                 name=ent.name,
                 gps_n=ent.gps_n,
                 gps_e=ent.gps_e,
-                asl=ent.asl_m
+                asl_m=ent.asl_m
             )
             for ent in cave.entrances
         ]
