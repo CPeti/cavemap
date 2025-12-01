@@ -39,4 +39,18 @@ The application was split into microservices based on domain-driven design and b
 
 ![architektúra](architecture.png)
 
+## Setup
+
+Using helm:
+
+```bash
+# Add Helm repos
+helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm repo add traefik https://traefik.github.io/charts
+
+# Update and install/upgrade
+helm repo update
+helm upgrade --install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg
+helm install cavemap ./charts
+```
 
