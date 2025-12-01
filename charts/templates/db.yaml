@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   instances: {{ .Values.db.replicas}}
-  imageName: ghcr.io/cloudnative-pg/postgresql:16
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
   storage:
     size: {{ .Values.db.storage }}
   bootstrap:
@@ -14,3 +14,6 @@ spec:
       database: {{ .Values.db.database }}
       secret:
         name: {{ .Values.db.name }}-secret
+  monitoring:
+    enabled: false
+

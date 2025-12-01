@@ -14,6 +14,7 @@ spec:
         app: cave-service
     spec:
       initContainers:
+        # Wait for DB to be ready
         - name: wait-for-db
           image: postgres:16
           command:
@@ -24,6 +25,19 @@ spec:
                 echo "Waiting for database..."
                 sleep 2
               done
+
+        # Run Alembic migrations
+        - name: run-migrations
+          image: {{ .Values.caveService.image }}
+          command:
+            - sh
+            - -c
+            - |
+              echo "Running Alembic migrations..."
+              alembic -c /app/alembic.ini upgrade head
+          env:
+            - name: DB_URL_SYNC
+              value: postgresql+psycopg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw.{{ .Values.namespace }}.svc.cluster.local:5432/{{ .Values.db.database }}
       containers:
         - name: cave-service
           image: {{ .Values.caveService.image }}
@@ -32,6 +46,8 @@ spec:
           env:
             - name: DB_URL
               value: "postgresql+asyncpg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw:5432/{{ .Values.db.database }}"
+            - name: DB_URL_SYNC
+              value: "postgresql+psycopg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw:5432/{{ .Values.db.database }}"
 ---
 apiVersion: v1
 kind: Service
