@@ -2,8 +2,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: frontend-ingress
-  namespace: {{ .Values.namespace }}
+  name: api-ingress
+  namespace: default
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: default-strip-api@kubernetescrd,default-oauth2-forward-auth@kubernetescrd
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   tls:
@@ -14,11 +16,11 @@ spec:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
-          - path: /
+          - path: /api/caves
             pathType: Prefix
             backend:
               service:
-                name: frontend
+                name: cave-service
                 port:
                   number: 80
 {{- end }}
