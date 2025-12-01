@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+spec:
+  ports:
+    - port: 4180
+      targetPort: 4180
+  selector:
+    app: oauth2-proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:latest
+          env:
+            - name: CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-credentials
+                  key: client-id
+            - name: CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-credentials
+                  key: client-secret
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-credentials
+                  key: cookie-secret
+          args:
+            - --provider=google
+            - --reverse-proxy=true
+            - --email-domain=*
+            - --client-id=$(CLIENT_ID)
+            - --client-secret=$(CLIENT_SECRET)
+            - --cookie-secret=$(COOKIE_SECRET)
+            - --redirect-url=https://auth.{{ .Values.ingress.host }}/oauth2/callback
+            - --cookie-domain=.{{ .Values.ingress.host }}
+            - --cookie-path=/
+            - --whitelist-domain=.{{ .Values.ingress.host }}
+            - --http-address=0.0.0.0:4180
+            - --upstream=static://202
+            - --set-xauthrequest=true
+            - --set-authorization-header=true
+            - --pass-authorization-header=true
+            
+          ports:
+            - containerPort: 4180
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: certs
+          secret:
+            secretName: frontend-cert

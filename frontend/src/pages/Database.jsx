@@ -9,10 +9,21 @@ export default function Database() {
     useEffect(() => {
         async function fetchCaves() {
             try {
-                const response = await fetch("https://frontend.opencave.dev/api/caves/");
+                const response = await fetch("https://localhost.me/api/caves/", {
+                    credentials: "include"
+                });
+
+                // For protected endpoints that return 401
+                if (response.status === 401) {
+                    window.location.href = "https://auth.localhost.me/oauth2/sign_in?rd=" +
+                        encodeURIComponent(window.location.href);
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
                 const caveData = await response.json();
                 // Transform API data if necessary to match CaveTable props
                 const transformed = caveData.map((cave) => ({
