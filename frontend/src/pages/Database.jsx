@@ -9,7 +9,7 @@ export default function Database() {
     useEffect(() => {
         async function fetchCaves() {
             try {
-                const response = await fetch("http://frontend.opencave.local/api/caves/");
+                const response = await fetch("https://frontend.opencave.dev/api/caves/");
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

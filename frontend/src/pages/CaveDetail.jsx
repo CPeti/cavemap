@@ -26,7 +26,7 @@ export default function CaveDetail() {
     useEffect(() => {
         async function fetchCave() {
             try {
-                const res = await fetch(`http://frontend.opencave.local/api/caves/${caveId}`);
+                const res = await fetch(`https://frontend.opencave.dev/api/caves/${caveId}`);
 
                 if (!res.ok) {
                     throw new Error("Failed to fetch cave");

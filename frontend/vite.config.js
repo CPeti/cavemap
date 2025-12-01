@@ -8,6 +8,6 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
-    allowedHosts: ['frontend.opencave.local', 'localhost'], // allow your hostname
+    allowedHosts: ['frontend.opencave.dev', 'localhost'], // allow your hostname
   }
 });
