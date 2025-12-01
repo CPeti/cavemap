@@ -4,5 +4,5 @@ pydantic
 sqlalchemy
 asyncpg
 alembic
-psycopg2-binary
+psycopg[binary]
 pydantic-settings
