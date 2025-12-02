@@ -1,28 +1,39 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
-import CaveMeasurementCards from './CaveMeasurementCards';
-import SidebarLocationSection from './SidebarLocationSection';
-import SidebarAdditionalInfo from './SidebarAdditionalInfo';
-import PhotoGallery from "./PhotoGallery";
-import PhotoModal from './PhotoModal';
 import PropTypes from 'prop-types';
+import {
+    XMarkIcon,
+    MapPinIcon,
+    ArrowsPointingOutIcon,
+    ArrowTrendingDownIcon,
+    CalendarIcon,
+    TagIcon,
+    GlobeAltIcon,
+    ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
+
+const InfoRow = ({ label, value, unit }) => (
+    <div className="flex items-center justify-between py-2">
+        <span className="text-xs text-slate-500">{label}</span>
+        <span className="text-sm text-slate-300">
+            {value ?? "—"}
+            {value && unit && <span className="text-slate-500 ml-1">{unit}</span>}
+        </span>
+    </div>
+);
 
 export default function MapSidebar({ selectedCave, isOpen, onClose }) {
     const navigate = useNavigate();
     const sheetRef = useRef(null);
     const contentRef = useRef(null);
 
-    const MIN_HEIGHT = 236; // visible when opened
-    const NAVBAR_HEIGHT = 64; // navbar height in px
+    const MIN_HEIGHT = 260;
+    const NAVBAR_HEIGHT = 64;
     const TOP_PADDING = 10;
 
     const [translateY, setTranslateY] = useState(window.innerHeight);
     const [isDragging, setIsDragging] = useState(false);
     const [isFullyOpen, setIsFullyOpen] = useState(false);
-
-    // Photo modal state
-    const [selectedPhoto, setSelectedPhoto] = useState(null);
-    const [photoIndex, setPhotoIndex] = useState(0);
 
     const startPointerYRef = useRef(0);
     const startTranslateYRef = useRef(0);
@@ -35,16 +46,14 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         }
     }, [isOpen]);
 
-    // Update fully open state
     useEffect(() => {
         const maxOpenY = NAVBAR_HEIGHT + TOP_PADDING;
-        setIsFullyOpen(translateY <= maxOpenY + 5); // small tolerance
+        setIsFullyOpen(translateY <= maxOpenY + 5);
     }, [translateY]);
 
     const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
     const handleDragStart = (e) => {
-        // Only allow dragging from the handle area
         const dragHandle = e.target.closest('.drag-handle');
         if (!dragHandle) return;
 
@@ -56,7 +65,6 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
 
     const handleDragMove = (e) => {
         if (!isDragging) return;
-
         e.preventDefault();
 
         const pointerY = getPointerY(e);
@@ -66,7 +74,6 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         const maxOpenY = NAVBAR_HEIGHT + TOP_PADDING;
         const maxClosedY = window.innerHeight - MIN_HEIGHT;
 
-        // Clamp the sheet position
         newY = Math.max(maxOpenY, Math.min(newY, maxClosedY));
         setTranslateY(newY);
     };
@@ -75,21 +82,17 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         if (!isDragging) return;
         setIsDragging(false);
 
-        // Snap to positions
         const maxOpenY = NAVBAR_HEIGHT + TOP_PADDING;
         const maxClosedY = window.innerHeight - MIN_HEIGHT;
         const midPoint = (maxOpenY + maxClosedY) / 2;
 
         if (translateY < midPoint) {
-            // Snap to fully open
             setTranslateY(maxOpenY);
         } else {
-            // Snap to minimized
             setTranslateY(maxClosedY);
         }
     };
 
-    // Handle scroll interaction with drag
     const handleContentTouchStart = (e) => {
         if (!isFullyOpen) return;
 
@@ -103,13 +106,10 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
             const currentY = getPointerY(moveEvent);
             const deltaY = currentY - startY;
 
-            // If scrolled to top and trying to scroll up (drag down), start dragging sheet
             if (scrollTop === 0 && deltaY > 0) {
-                // Remove scroll listeners and start sheet drag
                 document.removeEventListener('touchmove', handleTouchMove);
                 document.removeEventListener('touchend', handleTouchEnd);
 
-                // Start sheet dragging
                 setIsDragging(true);
                 startPointerYRef.current = currentY;
                 startTranslateYRef.current = translateY;
@@ -141,197 +141,194 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
         };
     }, [isDragging, translateY]);
 
-    // Parse photos properly
-    let photos = [];
-    if (Array.isArray(selectedCave?.photos)) {
-        photos = selectedCave.photos;
-    } else if (typeof selectedCave?.photos === "string") {
-        try {
-            photos = JSON.parse(selectedCave.photos);
-        } catch (e) {
-            console.error("Invalid JSON in photos:", e);
-        }
-    }
+    if (!selectedCave) return null;
 
-    // Photo modal functions - FIXED
-    const openPhotoModal = (photo, index) => {
-        setSelectedPhoto(photo);
-        setPhotoIndex(index);
-    };
+    const entrances = selectedCave.entrances || [];
+    const primaryEntrance = entrances[0];
 
-    const closePhotoModal = () => {
-        setSelectedPhoto(null);
-        setPhotoIndex(0);
-    };
+    const SidebarContent = () => (
+        <div className="space-y-4">
+            {/* Measurements */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <ArrowsPointingOutIcon className="w-4 h-4 text-teal-400" />
+                        <span className="text-xs text-slate-500">Length</span>
+                    </div>
+                    <span className="text-lg font-semibold text-white">
+                        {selectedCave.length ?? "—"}
+                        {selectedCave.length && <span className="text-sm text-slate-500 ml-1">m</span>}
+                    </span>
+                </div>
+                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <ArrowTrendingDownIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-xs text-slate-500">Depth</span>
+                    </div>
+                    <span className="text-lg font-semibold text-white">
+                        {selectedCave.depth ?? "—"}
+                        {selectedCave.depth && <span className="text-sm text-slate-500 ml-1">m</span>}
+                    </span>
+                </div>
+            </div>
 
-    const navigatePhoto = (direction) => {
-        if (!photos || photos.length === 0) return;
-        
-        let newIndex;
-        if (direction === 'next') {
-            newIndex = photoIndex < photos.length - 1 ? photoIndex + 1 : 0; // Loop to start
-        } else if (direction === 'prev') {
-            newIndex = photoIndex > 0 ? photoIndex - 1 : photos.length - 1; // Loop to end
-        } else {
-            return;
-        }
-        
-        setPhotoIndex(newIndex);
-        setSelectedPhoto(photos[newIndex]);
-    };
+            {/* Cave Details */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Details</h3>
+                <div className="divide-y divide-slate-700/50">
+                    <InfoRow label="Zone" value={selectedCave.zone} />
+                    <InfoRow label="Code" value={selectedCave.code} />
+                    <InfoRow label="Vertical Extent" value={selectedCave.vertical_extent} unit="m" />
+                    <InfoRow label="Horizontal Extent" value={selectedCave.horizontal_extent} unit="m" />
+                </div>
+            </div>
 
-    // Compact Photo Gallery Component
-    const SidebarPhotoGallery = ({ photos }) => {
-        if (!photos || photos.length === 0) return null;
+            {/* Survey Info */}
+            {(selectedCave.first_surveyed || selectedCave.last_surveyed) && (
+                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <CalendarIcon className="w-4 h-4" />
+                        Survey History
+                    </h3>
+                    <div className="divide-y divide-slate-700/50">
+                        <InfoRow label="First Surveyed" value={selectedCave.first_surveyed} />
+                        <InfoRow label="Last Surveyed" value={selectedCave.last_surveyed} />
+                    </div>
+                </div>
+            )}
 
-        return (
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    Photos ({photos.length})
+            {/* Entrances */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <MapPinIcon className="w-4 h-4" />
+                    Entrances
+                    <span className="ml-auto bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded">
+                        {entrances.length}
+                    </span>
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
-                    {photos.slice(0, 4).map((photo, index) => {
-                        // Handle both old and new photo structures
-                        const photoUrl = photo.url;
-                        const photoCaption = photo.caption || photo.filename || `Cave photo ${index + 1}`;
-
-                        if (!photoUrl) {
-                            console.warn('Photo missing URL:', photo);
-                            return null;
-                        }
-
-                        return (
+                {entrances.length > 0 ? (
+                    <div className="space-y-3">
+                        {entrances.map((entrance, index) => (
                             <div
-                                key={photo.storageRef || photo.url || index}
-                                className="relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100 group"
-                                onClick={() => openPhotoModal(photo, index)}
+                                key={entrance.entrance_id}
+                                className="bg-slate-800 border border-slate-700 rounded-lg p-3"
                             >
-                                <img
-                                    src={photoUrl}
-                                    alt={photoCaption}
-                                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
-                                    <svg
-                                        className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-white">
+                                        {entrance.name || `Entrance ${index + 1}`}
+                                    </span>
+                                    <a
+                                        href={`https://www.google.com/maps?q=${entrance.gps_n},${entrance.gps_e}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-teal-400 hover:text-teal-300"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
+                                        Open →
+                                    </a>
                                 </div>
-                                {/* Show count on last image if there are more than 4 */}
-                                {index === 3 && photos.length > 4 && (
-                                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-                                        <span className="text-white font-semibold text-lg">
-                                            +{photos.length - 4}
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div>
+                                        <span className="text-slate-500 block">Lat</span>
+                                        <span className="text-slate-300 font-mono">
+                                            {entrance.gps_n?.toFixed(5)}
                                         </span>
                                     </div>
-                                )}
+                                    <div>
+                                        <span className="text-slate-500 block">Lng</span>
+                                        <span className="text-slate-300 font-mono">
+                                            {entrance.gps_e?.toFixed(5)}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-500 block">Alt</span>
+                                        <span className="text-slate-300">
+                                            {entrance.asl_m ? `${entrance.asl_m}m` : "—"}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                        );
-                    })}
-                </div>
-                {photos.length > 4 && (
-                    <button
-                        onClick={() => navigate(`/cave/${selectedCave.id}`)}
-                        className="w-full mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
-                    >
-                        View all {photos.length} photos →
-                    </button>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-slate-500 text-center py-4">No entrances recorded</p>
                 )}
             </div>
-        );
-    };
+        </div>
+    );
 
-    if (!selectedCave) return null;
+    const ActionButtons = ({ isMobile = false }) => (
+        <div className={`flex ${isMobile ? 'gap-3' : 'flex-col gap-2'}`}>
+            <Link
+                to={`/cave/${selectedCave.cave_id}`}
+                className={`${isMobile ? 'flex-1' : 'w-full'} bg-teal-500 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-teal-400 transition-colors flex items-center justify-center gap-2 text-sm`}
+            >
+                <TagIcon className="w-4 h-4" />
+                View Details
+            </Link>
+            {primaryEntrance && (
+                <a
+                    href={`https://www.google.com/maps?q=${primaryEntrance.gps_n},${primaryEntrance.gps_e}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${isMobile ? 'flex-1' : 'w-full'} bg-slate-700 text-slate-300 py-2.5 px-4 rounded-lg font-medium hover:bg-slate-600 hover:text-white transition-colors flex items-center justify-center gap-2 text-sm`}
+                >
+                    <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                    Google Maps
+                </a>
+            )}
+        </div>
+    );
 
     return (
         <>
             {/* Desktop Sidebar */}
             <div className={`
-        hidden sm:flex fixed top-16 left-0 bottom-0 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
-        sm:w-64 md:w-80 lg:w-96
-        flex flex-col
-        overflow-hidden
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+                hidden sm:flex fixed top-16 left-0 bottom-0 bg-slate-900 border-r border-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
+                sm:w-72 md:w-80 lg:w-96
+                flex flex-col
+                overflow-hidden
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
                 {/* Header */}
-                <div className="flex-shrink-0 bg-black px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <h1 className="text-xl font-semibold text-white truncate pr-4">
-                            {selectedCave.name || "Unknown Cave"}
-                        </h1>
+                <div className="flex-shrink-0 bg-slate-800 px-5 py-4 border-b border-slate-700">
+                    <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0 pr-3">
+                            <h1 className="text-lg font-semibold text-white truncate">
+                                {selectedCave.name || "Unknown Cave"}
+                            </h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                {selectedCave.zone && (
+                                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                                        <GlobeAltIcon className="w-3 h-3" />
+                                        {selectedCave.zone}
+                                    </span>
+                                )}
+                                {selectedCave.code && (
+                                    <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono">
+                                        {selectedCave.code}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                         <button
                             onClick={onClose}
-                            className="flex-shrink-0 p-2 rounded-full bg-white bg-opacity-20 text-black hover:bg-opacity-30 transition-all duration-200"
+                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
                             aria-label="Close sidebar"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <XMarkIcon className="w-5 h-5" />
                         </button>
                     </div>
-                    {selectedCave.code && (
-                        <div className="mt-2 inline-flex items-center bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1 rounded-full">
-                            <span className="text-sm font-medium text-black">Code: {selectedCave.code}</span>
-                        </div>
-                    )}
                 </div>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto overscroll-contain">
-                    <div className="p-6 space-y-4">
-                        <CaveMeasurementCards
-                            depth={selectedCave.depth}
-                            length={selectedCave.length}
-                        />
-
-                        {/* Photo Gallery */}
-                        <SidebarPhotoGallery photos={photos} />
-
-                        <SidebarLocationSection cave={selectedCave} />
-                        {selectedCave.description && (
-                            <div className="bg-white border border-gray-200 rounded-xl p-4">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
-                                <p className="text-gray-700 leading-relaxed text-sm">
-                                    {selectedCave.description}
-                                </p>
-                            </div>
-                        )}
-                        <SidebarAdditionalInfo cave={selectedCave} />
-                    </div>
+                <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+                    <SidebarContent />
                 </div>
 
                 {/* Footer Actions */}
-                <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50">
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => navigate(`/cave/${selectedCave.id}`)}
-                            className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors duration-200 shadow-lg hover:shadow-xl flex items-center justify-center"
-                        >
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            View Full Details
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                const googleMapsUrl = `https://maps.google.com/?q=${selectedCave.lat},${selectedCave.lng}`;
-                                window.open(googleMapsUrl, '_blank');
-                            }}
-                            className="w-full bg-gray-200 text-gray-800 py-3 px-4 rounded-xl font-medium hover:bg-gray-300 transition-colors duration-200 flex items-center justify-center"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            Open in Google Maps
-                        </button>
-                    </div>
+                <div className="flex-shrink-0 p-4 border-t border-slate-800 bg-slate-900">
+                    <ActionButtons />
                 </div>
             </div>
 
@@ -339,12 +336,12 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
             {isOpen && (
                 <div
                     ref={sheetRef}
-                    className="sm:hidden fixed left-0 right-0 bg-white shadow-2xl z-40 rounded-t-2xl pointer-events-auto flex flex-col"
+                    className="sm:hidden fixed left-0 right-0 bg-slate-900 shadow-2xl z-40 rounded-t-2xl pointer-events-auto flex flex-col border-t border-slate-700"
                     style={{
                         transform: `translateY(${translateY}px)`,
                         transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-                        height: `${window.innerHeight - (TOP_PADDING)}px`,
-                        maxHeight: `${window.innerHeight - (TOP_PADDING)}px`,
+                        height: `${window.innerHeight - TOP_PADDING}px`,
+                        maxHeight: `${window.innerHeight - TOP_PADDING}px`,
                         bottom: 0,
                     }}
                 >
@@ -354,126 +351,87 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                         onMouseDown={handleDragStart}
                         onTouchStart={handleDragStart}
                     >
-                        <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+                        <div className="w-12 h-1.5 bg-slate-700 rounded-full"></div>
                     </div>
 
                     {/* Header */}
                     <div
-                        className="drag-handle flex-shrink-0 px-6 pb-4 border-b border-gray-200 cursor-grab active:cursor-grabbing"
+                        className="drag-handle flex-shrink-0 px-5 pb-4 border-b border-slate-800 cursor-grab active:cursor-grabbing"
                         onMouseDown={handleDragStart}
                         onTouchStart={handleDragStart}
                     >
-                        <div className="flex items-center justify-between">
-                            <h1 className="text-xl font-semibold text-gray-900 truncate">
-                                {selectedCave.name || "Unknown Cave"}
-                            </h1>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0 pr-3">
+                                <h1 className="text-lg font-semibold text-white truncate">
+                                    {selectedCave.name || "Unknown Cave"}
+                                </h1>
+                                <div className="flex items-center gap-2 mt-1">
+                                    {selectedCave.zone && (
+                                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                                            <GlobeAltIcon className="w-3 h-3" />
+                                            {selectedCave.zone}
+                                        </span>
+                                    )}
+                                    {selectedCave.code && (
+                                        <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
+                                            {selectedCave.code}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onClose();
                                 }}
-                                className="flex-shrink-0 p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all duration-200 ml-4"
+                                className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                             >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
-                        {selectedCave.code && (
-                            <div className="mt-2 inline-flex items-center bg-gray-100 px-3 py-1 rounded-full">
-                                <span className="text-sm font-medium text-gray-700">Code: {selectedCave.code}</span>
-                            </div>
-                        )}
                     </div>
 
-                    {/* Scrollable Content - properly constrained to viewport */}
+                    {/* Scrollable Content */}
                     <div
                         ref={contentRef}
-                        className="flex-1 overflow-y-auto overscroll-contain px-6 py-4"
+                        className="flex-1 overflow-y-auto overscroll-contain px-5 py-4"
                         onTouchStart={handleContentTouchStart}
                         style={{
                             WebkitOverflowScrolling: 'touch',
                             overscrollBehavior: 'none',
-                            overscrollBehaviorY: 'none',
-                            maxHeight: `calc(100vh - ${MIN_HEIGHT}px)`, // Ensure it doesn't exceed viewport
                         }}
                     >
-                        <div className="space-y-4">
-                            <CaveMeasurementCards depth={selectedCave.depth} length={selectedCave.length} />
-
-                            {/* Photo Gallery for Mobile */}
-                            <SidebarPhotoGallery photos={photos} />
-
-                            <SidebarLocationSection cave={selectedCave} />
-                            {selectedCave.description && (
-                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
-                                    <p className="text-gray-700 leading-relaxed text-sm">{selectedCave.description}</p>
-                                </div>
-                            )}
-                            <SidebarAdditionalInfo cave={selectedCave} />
-
-                            {/* Buttons inside scrollable area with proper spacing */}
-                            <div className="pt-4 pb-8">
-                                <div className="flex space-x-3">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/cave/${selectedCave.id}`);
-                                        }}
-                                        className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-xl font-semibold active:bg-blue-700 transition-colors duration-200 shadow-lg flex items-center justify-center"
-                                    >
-                                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Details
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.open(`https://maps.google.com/?q=${selectedCave.lat},${selectedCave.lng}`, '_blank');
-                                        }}
-                                        className="flex-1 bg-gray-200 text-gray-800 py-3 px-4 rounded-xl font-medium active:bg-gray-300 transition-colors duration-200 flex items-center justify-center"
-                                    >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                        Maps
-                                    </button>
-                                </div>
-                            </div>
+                        <SidebarContent />
+                        
+                        {/* Action buttons inside scroll area for mobile */}
+                        <div className="pt-4 pb-8">
+                            <ActionButtons isMobile />
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* Photo Modal - FIXED Z-INDEX */}
-            <PhotoModal
-                selectedPhoto={selectedPhoto}
-                photos={photos}
-                photoIndex={photoIndex}
-                onClose={closePhotoModal}
-                onNavigate={navigatePhoto}
-            />
         </>
     );
 }
 
 MapSidebar.propTypes = {
     selectedCave: PropTypes.shape({
-        id: PropTypes.string.isRequired,
-        name: PropTypes.string.isRequired,
+        cave_id: PropTypes.number,
+        name: PropTypes.string,
+        zone: PropTypes.string,
         code: PropTypes.string,
-        depth: PropTypes.number,
+        first_surveyed: PropTypes.string,
+        last_surveyed: PropTypes.string,
         length: PropTypes.number,
-        description: PropTypes.string,
-        lat: PropTypes.number,
-        lng: PropTypes.number,
-        photos: PropTypes.arrayOf(PropTypes.shape({
-            url: PropTypes.string.isRequired,
-            caption: PropTypes.string,
-            filename: PropTypes.string,
-            photographer: PropTypes.string,
+        depth: PropTypes.number,
+        vertical_extent: PropTypes.number,
+        horizontal_extent: PropTypes.number,
+        entrances: PropTypes.arrayOf(PropTypes.shape({
+            entrance_id: PropTypes.number,
+            name: PropTypes.string,
+            gps_n: PropTypes.number,
+            gps_e: PropTypes.number,
+            asl_m: PropTypes.number,
         })),
     }),
     isOpen: PropTypes.bool.isRequired,

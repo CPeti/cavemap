@@ -1,18 +1,40 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+    ArrowLeftIcon,
+    MapPinIcon,
+    CalendarIcon,
+    ArrowsPointingOutIcon,
+    ArrowTrendingDownIcon,
+    MapIcon,
+    TagIcon,
+    GlobeAltIcon,
+} from "@heroicons/react/24/outline";
 
-// Import UI components
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
-import CaveHeader from '../components/CaveHeader';
-import LocationInfoCard from '../components/LocationInfoCard';
-import MeasurementsCard from '../components/MeasurementsCard';
-import QuickStatsCard from '../components/QuickStatsCard';
-import PhotoGallery from '../components/PhotoGallery';
-import PhotoModal from '../components/PhotoModal';
-import MapActionsCard from '../components/MapActionsCard';
-import DiscoveryInfoCard from '../components/DiscoveryInfoCard';
-import ExplorationStatusCard from '../components/ExplorationStatusCard';
+const InfoItem = ({ label, value, unit }) => (
+    <div className="flex items-center justify-between py-2">
+        <span className="text-sm text-slate-400">{label}</span>
+        <span className="text-sm font-medium text-white">
+            {value ?? "—"}
+            {value && unit && <span className="text-slate-500 ml-1">{unit}</span>}
+        </span>
+    </div>
+);
+
+const StatCard = ({ icon: Icon, label, value, unit, iconColor = "text-slate-400" }) => (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-2">
+            <div className={`p-2 rounded-lg bg-slate-700/50 ${iconColor}`}>
+                <Icon className="h-4 w-4" />
+            </div>
+            <span className="text-xs text-slate-400 uppercase tracking-wide">{label}</span>
+        </div>
+        <div className="text-2xl font-semibold text-white">
+            {value ?? "—"}
+            {value && unit && <span className="text-sm font-normal text-slate-500 ml-1">{unit}</span>}
+        </div>
+    </div>
+);
 
 export default function CaveDetail() {
     const { caveId } = useParams();
@@ -20,13 +42,19 @@ export default function CaveDetail() {
     const [cave, setCave] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedPhoto, setSelectedPhoto] = useState(null);
-    const [photoIndex, setPhotoIndex] = useState(0);
 
     useEffect(() => {
         async function fetchCave() {
             try {
-                const res = await fetch(`https://localhost.me/api/caves/${caveId}`);
+                const res = await fetch(`https://localhost.me/api/caves/${caveId}`, {
+                    credentials: "include",
+                });
+
+                if (res.status === 401) {
+                    window.location.href = "https://auth.localhost.me/oauth2/sign_in?rd=" +
+                        encodeURIComponent(window.location.href);
+                    return;
+                }
 
                 if (!res.ok) {
                     throw new Error("Failed to fetch cave");
@@ -34,7 +62,6 @@ export default function CaveDetail() {
 
                 const data = await res.json();
                 setCave(data);
-
             } catch (err) {
                 console.error("Error fetching cave:", err);
                 setError("Failed to load cave data");
@@ -46,105 +73,259 @@ export default function CaveDetail() {
         fetchCave();
     }, [caveId]);
 
-    const openPhotoModal = (photo, index) => {
-        setSelectedPhoto(photo);
-        setPhotoIndex(index);
-    };
-
-    const closePhotoModal = () => {
-        setSelectedPhoto(null);
-        setPhotoIndex(0);
-    };
-
-    const navigatePhoto = (direction) => {
-        const photos = cave.photos || [];
-        if (direction === 'next' && photoIndex < photos.length - 1) {
-            const newIndex = photoIndex + 1;
-            setPhotoIndex(newIndex);
-            setSelectedPhoto(photos[newIndex]);
-        } else if (direction === 'prev' && photoIndex > 0) {
-            const newIndex = photoIndex - 1;
-            setPhotoIndex(newIndex);
-            setSelectedPhoto(photos[newIndex]);
-        }
-    };
-
     if (loading) {
-        return <LoadingSpinner message="Loading cave details..." />;
+        return (
+            <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-10 h-10 border-2 border-slate-700 border-t-teal-500 rounded-full animate-spin mx-auto" />
+                    <p className="mt-4 text-slate-500 text-sm">Loading cave details...</p>
+                </div>
+            </div>
+        );
     }
 
     if (error) {
         return (
-            <ErrorMessage
-                error={error}
-                onRetry={() => navigate('/caves')}
-                retryText="Back to Cave Database"
-            />
+            <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
+                <div className="text-center max-w-md mx-auto px-6">
+                    <div className="w-16 h-16 bg-slate-800 rounded-xl flex items-center justify-center mx-auto mb-5">
+                        <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">Error Loading Cave</h3>
+                    <p className="text-slate-500 mb-6">{error}</p>
+                    <button
+                        onClick={() => navigate("/caves")}
+                        className="inline-flex items-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-lg hover:bg-slate-700 transition-colors"
+                    >
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        Back to Database
+                    </button>
+                </div>
+            </div>
         );
     }
 
-    const photos = cave.photos || [];
+    const entrances = cave.entrances || [];
+    const primaryEntrance = entrances[0];
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-slate-900 pt-16">
             {/* Header */}
-            <CaveHeader
-                cave={cave}
-                onBack={() => navigate('/caves')}
-            />
+            <div className="border-b border-slate-800">
+                <div className="max-w-5xl mx-auto px-6 py-8">
+                    <button
+                        onClick={() => navigate("/caves")}
+                        className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-6"
+                    >
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        <span className="text-sm">Back to Database</span>
+                    </button>
+
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div>
+                            <h1 className="text-3xl font-semibold text-white mb-2">{cave.name}</h1>
+                            <div className="flex flex-wrap items-center gap-3 text-sm">
+                                {cave.zone && (
+                                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                                        <GlobeAltIcon className="w-4 h-4" />
+                                        {cave.zone}
+                                    </span>
+                                )}
+                                {cave.code && (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-xs">
+                                        <TagIcon className="w-3 h-3" />
+                                        {cave.code}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {primaryEntrance && (
+                            <Link
+                                to="/map"
+                                state={{ center: [primaryEntrance.gps_e, primaryEntrance.gps_n], zoom: 15 }}
+                                className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors text-sm font-medium"
+                            >
+                                <MapIcon className="w-4 h-4" />
+                                View on Map
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             {/* Main Content */}
-            <div className="max-w-6xl mx-auto px-6 mt-12 relative z-20">
-                {/* Info Cards Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <LocationInfoCard cave={cave} />
-                    <MeasurementsCard cave={cave} />
-                    <QuickStatsCard cave={cave} photoCount={photos.length} />
-                </div>
-
-                {/* Photo Gallery */}
-                <div className="mb-8">
-                    <PhotoGallery
-                        photos={photos}
-                        onPhotoClick={openPhotoModal}
+            <div className="max-w-5xl mx-auto px-6 py-8">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <StatCard
+                        icon={ArrowsPointingOutIcon}
+                        label="Length"
+                        value={cave.length}
+                        unit="m"
+                        iconColor="text-teal-400"
+                    />
+                    <StatCard
+                        icon={ArrowTrendingDownIcon}
+                        label="Depth"
+                        value={cave.depth}
+                        unit="m"
+                        iconColor="text-slate-400"
+                    />
+                    <StatCard
+                        icon={ArrowTrendingDownIcon}
+                        label="Vertical Extent"
+                        value={cave.vertical_extent}
+                        unit="m"
+                        iconColor="text-slate-400"
+                    />
+                    <StatCard
+                        icon={ArrowsPointingOutIcon}
+                        label="Horizontal Extent"
+                        value={cave.horizontal_extent}
+                        unit="m"
+                        iconColor="text-teal-400"
                     />
                 </div>
 
-                {/* Description Section */}
-                {cave.description && (
-                    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6 mb-8">
-                        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Description</h2>
-                        <div className="prose prose-gray max-w-none">
-                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">
-                                {cave.description}
-                            </p>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column - Details */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Cave Information */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                            <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                                <TagIcon className="w-4 h-4 text-teal-400" />
+                                Cave Information
+                            </h2>
+                            <div className="divide-y divide-slate-700/50">
+                                <InfoItem label="Name" value={cave.name} />
+                                <InfoItem label="Zone" value={cave.zone} />
+                                <InfoItem label="Code" value={cave.code} />
+                                <InfoItem label="Length" value={cave.length} unit="m" />
+                                <InfoItem label="Depth" value={cave.depth} unit="m" />
+                                <InfoItem label="Vertical Extent" value={cave.vertical_extent} unit="m" />
+                                <InfoItem label="Horizontal Extent" value={cave.horizontal_extent} unit="m" />
+                            </div>
+                        </div>
+
+                        {/* Entrances */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                            <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                                <MapPinIcon className="w-4 h-4 text-teal-400" />
+                                Entrances
+                                <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                                    {entrances.length}
+                                </span>
+                            </h2>
+
+                            {entrances.length > 0 ? (
+                                <div className="space-y-4">
+                                    {entrances.map((entrance, index) => (
+                                        <div
+                                            key={entrance.entrance_id}
+                                            className="bg-slate-800 border border-slate-700 rounded-lg p-4"
+                                        >
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-sm font-medium text-white">
+                                                    {entrance.name || `Entrance ${index + 1}`}
+                                                </span>
+                                                <Link
+                                                    to="/map"
+                                                    state={{ center: [entrance.gps_e, entrance.gps_n], zoom: 17 }}
+                                                    className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                                                >
+                                                    View on map →
+                                                </Link>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div>
+                                                    <span className="block text-xs text-slate-500 mb-1">Latitude</span>
+                                                    <span className="text-sm text-slate-300 font-mono">
+                                                        {entrance.gps_n?.toFixed(6)}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-xs text-slate-500 mb-1">Longitude</span>
+                                                    <span className="text-sm text-slate-300 font-mono">
+                                                        {entrance.gps_e?.toFixed(6)}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-xs text-slate-500 mb-1">Altitude</span>
+                                                    <span className="text-sm text-slate-300">
+                                                        {entrance.asl_m ? `${entrance.asl_m} m` : "—"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <MapPinIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                                    <p className="text-sm text-slate-500">No entrances recorded</p>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
 
-                {/* Additional Information Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <DiscoveryInfoCard cave={cave} />
-                    <ExplorationStatusCard cave={cave} />
+                    {/* Right Column - Survey Info */}
+                    <div className="space-y-6">
+                        {/* Survey Dates */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                            <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                                <CalendarIcon className="w-4 h-4 text-teal-400" />
+                                Survey History
+                            </h2>
+                            <div className="divide-y divide-slate-700/50">
+                                <InfoItem label="First Surveyed" value={cave.first_surveyed} />
+                                <InfoItem label="Last Surveyed" value={cave.last_surveyed} />
+                            </div>
+                        </div>
+
+                        {/* Quick Actions */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                            <h2 className="text-sm font-medium text-white mb-4">Quick Actions</h2>
+                            <div className="space-y-2">
+                                {primaryEntrance && (
+                                    <Link
+                                        to="/map"
+                                        state={{ center: [primaryEntrance.gps_e, primaryEntrance.gps_n], zoom: 15 }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                                    >
+                                        <MapIcon className="w-4 h-4 text-teal-400" />
+                                        View on Map
+                                    </Link>
+                                )}
+                                <a
+                                    href={primaryEntrance ? `https://www.google.com/maps?q=${primaryEntrance.gps_n},${primaryEntrance.gps_e}` : "#"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center gap-3 w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-sm transition-colors ${
+                                        primaryEntrance
+                                            ? "text-slate-300 hover:bg-slate-700 hover:text-white"
+                                            : "text-slate-600 cursor-not-allowed"
+                                    }`}
+                                >
+                                    <GlobeAltIcon className="w-4 h-4 text-slate-400" />
+                                    Open in Google Maps
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                            <h2 className="text-sm font-medium text-white mb-4">Database Info</h2>
+                            <div className="divide-y divide-slate-700/50">
+                                <InfoItem label="Cave ID" value={cave.cave_id} />
+                                <InfoItem label="Entrances" value={entrances.length} />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-                {/* Map Actions */}
-                <MapActionsCard
-                    cave={cave}
-                    onViewOnCaveMap={() =>
-                        navigate("/map", { state: { center: [cave.lng, cave.lat], zoom: 15 } })
-                    }
-                />
             </div>
-
-            {/* Photo Modal */}
-            <PhotoModal
-                selectedPhoto={selectedPhoto}
-                photos={photos}
-                photoIndex={photoIndex}
-                onClose={closePhotoModal}
-                onNavigate={navigatePhoto}
-            />
         </div>
     );
 }

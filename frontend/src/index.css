@@ -41,3 +41,19 @@ body {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: none;
 }
+
+/*
+Source - https://stackoverflow.com/a/23374725
+Posted by Richard Deeming, modified by community. See post 'Timeline' for change history
+Retrieved 2025-12-02, License - CC BY-SA 4.0
+*/
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance:textfield;
+}

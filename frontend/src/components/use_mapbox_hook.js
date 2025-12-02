@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -9,9 +7,10 @@ export function useMapbox({
     center,
     zoom,
     mapStyle,
-    caves,
-    selectedCave,
-    onCaveSelect,
+    entranceMarkers,
+    selectedCaveId,
+    onEntranceSelect,
+    is3D,
 }) {
     const mapContainer = useRef(null);
     const mapRef = useRef(null);
@@ -69,53 +68,47 @@ export function useMapbox({
         }
     }, [mapStyle]);
 
+    // Build GeoJSON from entrance markers
+    const buildGeoJSON = (markers, selectedId) => ({
+        type: "FeatureCollection",
+        features: markers.map((marker) => ({
+            type: "Feature",
+            geometry: {
+                type: "Point",
+                coordinates: [marker.lng, marker.lat],
+            },
+            properties: {
+                id: marker.id,
+                caveId: marker.caveId,
+                caveName: marker.caveName,
+                entranceName: marker.entranceName,
+                isMainEntrance: marker.isMainEntrance,
+                // All entrances of the selected cave should be marked as selected
+                selected: marker.caveId === selectedId,
+            },
+        })),
+    });
+
     // Update marker selection styling
     useEffect(() => {
         const map = mapRef.current;
-        if (!map?.getSource("caves")) return;
+        if (!map?.getSource("entrances")) return;
 
-        const geojson = {
-            type: "FeatureCollection",
-            features: caves.map((cave) => ({
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [cave.lng, cave.lat],
-                },
-                properties: {
-                    ...cave,
-                    selected: selectedCave?.id === cave.id,
-                },
-            })),
-        };
+        const geojson = buildGeoJSON(entranceMarkers, selectedCaveId);
+        map.getSource("entrances").setData(geojson);
+    }, [selectedCaveId, entranceMarkers]);
 
-        map.getSource("caves").setData(geojson);
-    }, [selectedCave, caves]);
-
-    // Add cave data and layers
+    // Add entrance data and layers
     useEffect(() => {
         const map = mapRef.current;
-        if (!map || caves.length === 0) return;
+        if (!map || entranceMarkers.length === 0) return;
 
-        const addCaveLayers = () => {
-            if (map.getSource("caves")) return;
+        const addEntranceLayers = () => {
+            if (map.getSource("entrances")) return;
 
-            const geojson = {
-                type: "FeatureCollection",
-                features: caves.map((cave) => ({
-                    type: "Feature",
-                    geometry: {
-                        type: "Point",
-                        coordinates: [cave.lng, cave.lat],
-                    },
-                    properties: {
-                        ...cave,
-                        selected: selectedCave?.id === cave.id,
-                    },
-                })),
-            };
+            const geojson = buildGeoJSON(entranceMarkers, selectedCaveId);
 
-            map.addSource("caves", {
+            map.addSource("entrances", {
                 type: "geojson",
                 data: geojson,
                 cluster: true,
@@ -123,117 +116,106 @@ export function useMapbox({
                 clusterRadius: 50,
             });
 
+            // Cluster circles - teal theme
             map.addLayer({
                 id: "clusters",
                 type: "circle",
-                source: "caves",
+                source: "entrances",
                 filter: ["has", "point_count"],
                 paint: {
                     "circle-color": [
                         "step",
                         ["get", "point_count"],
-                        "#00BCD4",
+                        "#14b8a6", // teal-500
                         10,
-                        "#2196F3",
+                        "#0d9488", // teal-600
                         30,
-                        "#3F51B5",
+                        "#0f766e", // teal-700
                     ],
-                    "circle-radius": ["step", ["get", "point_count"], 15, 10, 20, 30, 25],
+                    "circle-radius": ["step", ["get", "point_count"], 18, 10, 24, 30, 30],
+                    "circle-stroke-width": 2,
+                    "circle-stroke-color": "#ffffff",
                 },
             });
 
             map.addLayer({
                 id: "cluster-count",
                 type: "symbol",
-                source: "caves",
+                source: "entrances",
                 filter: ["has", "point_count"],
                 layout: {
                     "text-field": "{point_count_abbreviated}",
                     "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-                    "text-size": 12,
+                    "text-size": 13,
+                },
+                paint: {
+                    "text-color": "#ffffff",
                 },
             });
 
+            // Individual entrance markers
             map.addLayer({
                 id: "unclustered-point",
                 type: "circle",
-                source: "caves",
+                source: "entrances",
                 filter: ["!", ["has", "point_count"]],
                 paint: {
-                    "circle-color": ["case", ["get", "selected"], "#4CAF50", "#FF5722"],
-                    "circle-radius": ["case", ["get", "selected"], 8, 7],
-                    "circle-stroke-width": ["case", ["get", "selected"], 2, 1],
-                    "circle-stroke-color": [
+                    // Teal when selected, orange otherwise
+                    "circle-color": ["case", ["get", "selected"], "#14b8a6", "#f97316"],
+                    // Main entrances are slightly larger
+                    "circle-radius": [
                         "case",
                         ["get", "selected"],
-                        "#2E7D32",
-                        "#fff",
+                        ["case", ["get", "isMainEntrance"], 11, 9],
+                        ["case", ["get", "isMainEntrance"], 9, 7]
                     ],
+                    "circle-stroke-width": ["case", ["get", "selected"], 3, 2],
+                    "circle-stroke-color": "#ffffff",
                 },
             });
 
-            // Click handlers
-            map.on("click", "unclustered-point", async (e) => {
-                const feature = e.features[0];
-                const cave = feature.properties;
-                onCaveSelect(cave);
-
-                try {
-                    const kmlRef = doc(db, "kml", cave.id);
-                    const kmlSnap = await getDoc(kmlRef);
-
-                    if (kmlSnap.exists()) {
-                        const geojsonStr = kmlSnap.data().geojson;
-                        const geojsonData = JSON.parse(geojsonStr);
-
-                        if (map.getSource("kml-data")) {
-                            map.getSource("kml-data").setData(geojsonData);
-                        } else {
-                            map.addSource("kml-data", {
-                                type: "geojson",
-                                lineMetrics: true,
-                                data: geojsonData,
-                            });
-                            map.addLayer({
-                                id: "kml-layer",
-                                type: "line",
-                                source: "kml-data",
-                                layout: {
-                                    "line-z-offset": [
-                                        "at-interpolated",
-                                        [
-                                            "*",
-                                            ["line-progress"],
-                                            ["-", ["length", ["get", "elevation"]], 1],
-                                        ],
-                                        ["get", "elevation"],
-                                    ],
-                                    "line-elevation-reference": "sea",
-                                },
-                                paint: {
-                                    "line-color": "#57B9FF",
-                                    "line-width": 3,
-                                },
-                            });
-                        }
-                    } else if (map.getSource("kml-data")) {
-                        map.getSource("kml-data").setData({
-                            type: "FeatureCollection",
-                            features: [],
-                        });
-                    }
-                } catch (error) {
-                    console.error("Error loading KML geojson:", error);
-                }
+            // Cave name labels (only for main entrances to avoid duplicates)
+            map.addLayer({
+                id: "cave-labels",
+                type: "symbol",
+                source: "entrances",
+                filter: ["all", ["!", ["has", "point_count"]], ["get", "isMainEntrance"]],
+                layout: {
+                    "text-field": ["get", "caveName"],
+                    "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                    "text-size": 12,
+                    "text-offset": [0, -1.5],
+                    "text-anchor": "bottom",
+                    "text-allow-overlap": false,
+                    "text-ignore-placement": false,
+                },
+                paint: {
+                    "text-color": ["case", ["get", "selected"], "#0f766e", "#1e293b"],
+                    "text-halo-color": "#ffffff",
+                    "text-halo-width": 1.5,
+                },
             });
 
+            // Click handler for individual entrances
+            map.on("click", "unclustered-point", (e) => {
+                const feature = e.features[0];
+                const props = feature.properties;
+                onEntranceSelect({
+                    id: props.id,
+                    caveId: props.caveId,
+                    caveName: props.caveName,
+                    entranceName: props.entranceName,
+                });
+            });
+
+            // Click handler for clusters
             map.on("click", "clusters", (e) => {
                 const features = map.queryRenderedFeatures(e.point, {
                     layers: ["clusters"],
                 });
                 const clusterId = features[0].properties.cluster_id;
                 map
-                    .getSource("caves")
+                    .getSource("entrances")
                     .getClusterExpansionZoom(clusterId, (err, zoom) => {
                         if (err) return;
                         map.easeTo({
@@ -243,26 +225,33 @@ export function useMapbox({
                     });
             });
 
+            // Cursor handlers
             map.on("mouseenter", "clusters", () => {
                 map.getCanvas().style.cursor = "pointer";
             });
             map.on("mouseleave", "clusters", () => {
                 map.getCanvas().style.cursor = "";
             });
+            map.on("mouseenter", "unclustered-point", () => {
+                map.getCanvas().style.cursor = "pointer";
+            });
+            map.on("mouseleave", "unclustered-point", () => {
+                map.getCanvas().style.cursor = "";
+            });
         };
 
         const onStyleLoad = () => {
-            addCaveLayers();
+            addEntranceLayers();
         };
 
         map.on("style.load", onStyleLoad);
 
         if (map.isStyleLoaded()) {
-            addCaveLayers();
+            addEntranceLayers();
         } else {
             const checkAndAdd = () => {
                 if (map.isStyleLoaded()) {
-                    addCaveLayers();
+                    addEntranceLayers();
                     map.off("render", checkAndAdd);
                 }
             };
@@ -272,10 +261,10 @@ export function useMapbox({
         return () => {
             map.off("style.load", onStyleLoad);
         };
-    }, [mapStyle, caves, selectedCave, onCaveSelect]);
+    }, [mapStyle, entranceMarkers, selectedCaveId, onEntranceSelect]);
 
     // Handle terrain toggle
-    const toggle3D = (is3D) => {
+    useEffect(() => {
         const map = mapRef.current;
         if (!map || !hasInitialized) return;
 
@@ -297,36 +286,24 @@ export function useMapbox({
             }
         };
 
+        if (map.isStyleLoaded()) {
+            applyTerrain();
+        }
+
         const onStyleLoad = () => {
             applyTerrain();
         };
 
         map.on("style.load", onStyleLoad);
 
-        if (map.isStyleLoaded()) {
-            applyTerrain();
-        }
-
         return () => {
             map.off("style.load", onStyleLoad);
         };
-    };
-
-    // Clear KML data
-    const clearKmlData = () => {
-        if (mapRef.current?.getSource("kml-data")) {
-            mapRef.current.getSource("kml-data").setData({
-                type: "FeatureCollection",
-                features: [],
-            });
-        }
-    };
+    }, [is3D, hasInitialized]);
 
     return {
         mapContainer,
         mapRef,
         hasInitialized,
-        toggle3D,
-        clearKmlData,
     };
 }
