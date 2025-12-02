@@ -25,6 +25,7 @@ class CaveBase(BaseModel):
     first_surveyed: Optional[str] = None
     last_surveyed: Optional[str] = None
     length: Optional[float] = None
+    depth: Optional[float] = None
     vertical_extent: Optional[float] = None
     horizontal_extent: Optional[float] = None
     

@@ -13,6 +13,7 @@ class Cave(Base):
     first_surveyed = Column(String)
     last_surveyed = Column(String)
     length: Mapped[Optional[float]] = mapped_column(Float)
+    depth: Mapped[Optional[float]] = mapped_column(Float)
     vertical_extent: Mapped[Optional[float]] = mapped_column(Float)
     horizontal_extent: Mapped[Optional[float]] = mapped_column(Float)
 

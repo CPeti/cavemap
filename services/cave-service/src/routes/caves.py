@@ -1,11 +1,12 @@
 from src.models.cave import Cave, Entrance
 from src.schemas.cave import CaveCreate, CaveRead
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from src.db.connection import get_session
+from typing import Optional
 
 router = APIRouter()
 
@@ -13,6 +14,19 @@ router = APIRouter()
 @router.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@router.get("/zones", response_model=list[str])
+async def list_zones(session: AsyncSession = Depends(get_session)):
+    """Get all unique zones for filtering."""
+    result = await session.execute(
+        select(Cave.zone)
+        .where(Cave.zone.isnot(None))
+        .distinct()
+        .order_by(Cave.zone)
+    )
+    return [zone for zone in result.scalars().all() if zone]
+
 
 @router.post("/", response_model=CaveRead, status_code=status.HTTP_201_CREATED)
 async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_session)):
@@ -34,6 +48,7 @@ async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_sess
         first_surveyed=cave.first_surveyed,
         last_surveyed=cave.last_surveyed,
         length=cave.length,
+        depth=cave.depth,
         vertical_extent=cave.vertical_extent,
         horizontal_extent=cave.horizontal_extent
     )
@@ -59,12 +74,31 @@ async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_sess
     return new_cave
 
 @router.get("/", response_model=list[CaveRead])
-async def list_caves(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Cave)
-        .options(selectinload(Cave.entrances))
-        .order_by(Cave.name)
-    )
+async def list_caves(
+    session: AsyncSession = Depends(get_session),
+    zone: Optional[str] = Query(None, description="Filter by zone"),
+    depth_min: Optional[float] = Query(None, description="Minimum vertical extent (depth)"),
+    depth_max: Optional[float] = Query(None, description="Maximum vertical extent (depth)"),
+    length_min: Optional[float] = Query(None, description="Minimum length"),
+    length_max: Optional[float] = Query(None, description="Maximum length"),
+):
+    """List caves with optional filtering."""
+    query = select(Cave).options(selectinload(Cave.entrances))
+    
+    # Apply filters
+    if zone:
+        query = query.where(Cave.zone == zone)
+    if depth_min is not None:
+        query = query.where(Cave.depth >= depth_min)
+    if depth_max is not None:
+        query = query.where(Cave.depth <= depth_max)
+    if length_min is not None:
+        query = query.where(Cave.length >= length_min)
+    if length_max is not None:
+        query = query.where(Cave.length <= length_max)
+    
+    query = query.order_by(Cave.name)
+    result = await session.execute(query)
     return result.scalars().unique().all()
 
 
