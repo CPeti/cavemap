@@ -1,0 +1,100 @@
+"""
+Authentication dependencies for FastAPI endpoints.
+
+Auth is verified by calling the OAuth2 proxy's /oauth2/auth endpoint
+with the user's cookies. This allows per-endpoint auth control.
+"""
+
+from fastapi import Request, HTTPException, status
+from typing import Optional
+import httpx
+
+# OAuth2 proxy internal service URL (within the cluster)
+OAUTH2_PROXY_AUTH_URL = "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
+
+
+class User:
+    """Represents an authenticated user."""
+    def __init__(self, email: str, user: Optional[str] = None, access_token: Optional[str] = None):
+        self.email = email
+        self.user = user or email
+        self.access_token = access_token
+    
+    def __repr__(self):
+        return f"User(email={self.email})"
+
+
+async def verify_auth(request: Request) -> Optional[User]:
+    """
+    Verify authentication by calling OAuth2 proxy.
+    Returns User if authenticated, None otherwise.
+    """
+    # Get cookies from the request to forward to OAuth2 proxy
+    cookies = request.headers.get("cookie", "")
+    if not cookies:
+        return None
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                OAUTH2_PROXY_AUTH_URL,
+                headers={
+                    "Cookie": cookies,
+                    "X-Forwarded-Proto": request.headers.get("x-forwarded-proto", "https"),
+                    "X-Forwarded-Host": request.headers.get("x-forwarded-host", request.headers.get("host", "")),
+                    "X-Forwarded-Uri": str(request.url.path),
+                },
+                timeout=5.0
+            )
+            
+            if response.status_code == 202 or response.status_code == 200:
+                # User is authenticated - extract user info from response headers
+                email = response.headers.get("X-Auth-Request-Email", "")
+                user = response.headers.get("X-Auth-Request-User", "")
+                access_token = response.headers.get("X-Auth-Request-Access-Token")
+                
+                if email:
+                    return User(email=email, user=user, access_token=access_token)
+            
+            return None
+    except Exception as e:
+        # Log error but don't fail - treat as unauthenticated
+        print(f"Auth verification error: {e}")
+        return None
+
+
+async def get_current_user(request: Request) -> Optional[User]:
+    """
+    Dependency that returns the current user if authenticated, None otherwise.
+    Use this for endpoints that work with or without auth.
+    
+    Usage:
+        @router.get("/")
+        async def endpoint(user: Optional[User] = Depends(get_current_user)):
+            if user:
+                # User is logged in
+            else:
+                # Anonymous access
+    """
+    return await verify_auth(request)
+
+
+async def require_auth(request: Request) -> User:
+    """
+    Dependency that requires authentication.
+    Returns 401 if user is not authenticated.
+    
+    Usage:
+        @router.post("/")
+        async def protected_endpoint(user: User = Depends(require_auth)):
+            # Only authenticated users can access
+    """
+    user = await verify_auth(request)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    return user
+

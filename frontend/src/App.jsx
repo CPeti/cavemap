@@ -1,27 +1,38 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import MapView from "./pages/MapView";
 import Database from "./pages/Database";
 import Upload from "./pages/Upload";
 import CaveDetail from "./pages/CaveDetail";
+import Login from "./pages/Login";
 
-export default function App() {
+function AppContent() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
+
   return (
-    <Router>
-      <div className="flex flex-col h-screen">
-      <Navbar />
+    <div className="flex flex-col h-screen">
+      {!isLoginPage && <Navbar />}
       <div className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/caves" element={<Database />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/cave/:caveId" element={<CaveDetail />} />
         </Routes>
       </div>
-      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

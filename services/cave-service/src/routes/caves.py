@@ -1,5 +1,6 @@
 from src.models.cave import Cave, Entrance
 from src.schemas.cave import CaveCreate, CaveRead
+from src.auth import User, get_current_user, require_auth
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +11,29 @@ from typing import Optional
 
 router = APIRouter()
 
+
 # --- Health check endpoint (for K8s probes) ---
+# Public - no auth required
 @router.get("/health")
 def health():
     return {"status": "ok"}
 
 
+# --- Current user endpoint ---
+# Returns user info if authenticated, 401 otherwise
+# Used by frontend to check auth status
+@router.get("/me")
+async def get_me(user: User = Depends(require_auth)):
+    """Get current authenticated user info."""
+    return {
+        "email": user.email,
+        "user": user.user,
+        "authenticated": True
+    }
+
+
+# --- Zone list endpoint ---
+# Public - no auth required
 @router.get("/zones", response_model=list[str])
 async def list_zones(session: AsyncSession = Depends(get_session)):
     """Get all unique zones for filtering."""
@@ -28,8 +46,14 @@ async def list_zones(session: AsyncSession = Depends(get_session)):
     return [zone for zone in result.scalars().all() if zone]
 
 
+# --- Create cave endpoint ---
+# Protected - requires authentication
 @router.post("/", response_model=CaveRead, status_code=status.HTTP_201_CREATED)
-async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_session)):
+async def create_cave(
+    cave: CaveCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
     # Check if name already exists
     name_exists = await session.scalar(
         select(Cave.cave_id).where(Cave.name == cave.name)
@@ -73,6 +97,9 @@ async def create_cave(cave: CaveCreate, session: AsyncSession = Depends(get_sess
     await session.refresh(new_cave, ["entrances"])
     return new_cave
 
+
+# --- List caves endpoint ---
+# Public - no auth required
 @router.get("/", response_model=list[CaveRead])
 async def list_caves(
     session: AsyncSession = Depends(get_session),
@@ -102,6 +129,8 @@ async def list_caves(
     return result.scalars().unique().all()
 
 
+# --- Get single cave endpoint ---
+# Public - no auth required
 @router.get("/{cave_id}", response_model=CaveRead)
 async def get_cave(cave_id: int, session: AsyncSession = Depends(get_session)):
     result = await session.execute(

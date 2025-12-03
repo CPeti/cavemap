@@ -6,3 +6,4 @@ asyncpg
 alembic
 psycopg[binary]
 pydantic-settings
+httpx
