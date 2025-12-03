@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PlusIcon, TrashIcon, MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import CoordinateInput from "../components/CoordinateInput";
 
 const emptyEntrance = {
     name: "",
-    gps_n: "",
-    gps_e: "",
+    gps_n: null,
+    gps_e: null,
     asl_m: "",
 };
 
@@ -148,6 +149,11 @@ export default function Upload() {
         });
     }
 
+    function handleCoordinateChange(index, type, value) {
+        const field = type === 'latitude' ? 'gps_n' : 'gps_e';
+        handleEntranceChange(index, field, value);
+    }
+
     function addEntrance() {
         setEntrances((prev) => [...prev, { ...emptyEntrance }]);
     }
@@ -169,11 +175,13 @@ export default function Upload() {
 
         // Validate at least one entrance has coordinates
         const validEntrances = entrances.filter(
-            (ent) => ent.gps_n && ent.gps_e
+            (ent) => ent.gps_n !== null && ent.gps_n !== undefined &&
+                     ent.gps_e !== null && ent.gps_e !== undefined &&
+                     !isNaN(ent.gps_n) && !isNaN(ent.gps_e)
         );
 
         if (validEntrances.length === 0) {
-            setError("At least one entrance with coordinates is required.");
+            setError("At least one entrance with valid coordinates is required.");
             return;
         }
 
@@ -193,8 +201,8 @@ export default function Upload() {
                 horizontal_extent: formData.horizontal_extent ? parseFloat(formData.horizontal_extent) : null,
                 entrances: validEntrances.map((ent) => ({
                     name: ent.name.trim() || null,
-                    gps_n: parseFloat(ent.gps_n),
-                    gps_e: parseFloat(ent.gps_e),
+                    gps_n: ent.gps_n,
+                    gps_e: ent.gps_e,
                     asl_m: ent.asl_m ? parseFloat(ent.asl_m) : null,
                 })),
             };
@@ -387,8 +395,8 @@ export default function Upload() {
                                             </button>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        <div className="col-span-2 sm:col-span-4">
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div>
                                             <label className="block text-xs font-medium text-slate-400 mb-1.5">
                                                 Entrance Name
                                             </label>
@@ -400,33 +408,15 @@ export default function Upload() {
                                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                                             />
                                         </div>
+
+                                        <CoordinateInput
+                                            latitude={entrance.gps_n}
+                                            longitude={entrance.gps_e}
+                                            onChange={(type, value) => handleCoordinateChange(index, type, value)}
+                                            required={true}
+                                            className="col-span-2"
+                                        />
                                         <div>
-                                            <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                                                Latitude <span className="text-red-400">*</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                step="any"
-                                                value={entrance.gps_n}
-                                                onChange={(e) => handleEntranceChange(index, "gps_n", e.target.value)}
-                                                placeholder="45.1234"
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                                                Longitude <span className="text-red-400">*</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                step="any"
-                                                value={entrance.gps_e}
-                                                onChange={(e) => handleEntranceChange(index, "gps_e", e.target.value)}
-                                                placeholder="14.5678"
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
                                             <label className="block text-xs font-medium text-slate-400 mb-1.5">
                                                 Altitude
                                             </label>
