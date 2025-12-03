@@ -141,18 +141,18 @@ export default function Home() {
     const RecentCaveRow = ({ cave, index }) => (
         <Link
             to={`/cave/${cave.cave_id}`}
-            className="group flex items-center gap-4 py-3 hover:bg-slate-50 px-2 -mx-2 rounded-lg transition-colors"
+            className="group flex items-center gap-4 py-3 hover:bg-slate-700/50 px-3 -mx-3 rounded-lg transition-colors"
         >
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium text-sm">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-medium text-sm">
                 {index + 1}
             </div>
             <div className="flex-grow min-w-0">
-                <h4 className="font-medium text-slate-800 truncate group-hover:text-teal-600 transition-colors">
+                <h4 className="font-medium text-white truncate group-hover:text-teal-400 transition-colors">
                     {cave.name}
                 </h4>
                 <p className="text-xs text-slate-500">Surveyed {cave.last_surveyed}</p>
             </div>
-            <svg className="w-4 h-4 text-slate-400 group-hover:text-teal-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-slate-600 group-hover:text-teal-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
         </Link>
@@ -264,8 +264,8 @@ export default function Home() {
             {stats.recentlySurveyed.length > 0 && (
                 <div className="border-t border-slate-800">
                     <div className="max-w-5xl mx-auto px-6 py-12">
-                        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                            <div className="bg-slate-900 px-5 py-3 border-b border-slate-800">
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                            <div className="px-5 py-4 border-b border-slate-700/50">
                                 <h2 className="text-sm font-medium text-white flex items-center gap-2">
                                     <svg className="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -273,15 +273,15 @@ export default function Home() {
                                     Recently Surveyed
                                 </h2>
                             </div>
-                            <div className="p-4 divide-y divide-slate-100">
+                            <div className="p-4 divide-y divide-slate-700/50">
                                 {stats.recentlySurveyed.map((cave, index) => (
                                     <RecentCaveRow key={cave.cave_id} cave={cave} index={index} />
                                 ))}
                             </div>
-                            <div className="bg-slate-50 px-5 py-3 border-t border-slate-100">
+                            <div className="bg-slate-800/30 px-5 py-3 border-t border-slate-700/50">
                                 <Link
                                     to="/caves"
-                                    className="text-teal-600 text-sm font-medium hover:text-teal-700 transition-colors flex items-center gap-1"
+                                    className="text-teal-400 text-sm font-medium hover:text-teal-300 transition-colors flex items-center gap-1"
                                 >
                                     View all caves
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

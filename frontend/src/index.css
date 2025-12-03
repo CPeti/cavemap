@@ -22,6 +22,14 @@ body {
     height: -webkit-fill-available;
     overflow: auto;
     overscroll-behavior: none;
+    
+    /* Hide scrollbar */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+#root::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 /* Additional mobile Safari fixes */
@@ -55,5 +63,16 @@ input[type=number]::-webkit-inner-spin-button {
 }
 
 input[type=number] {
-    -moz-appearance:textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Utility class to hide scrollbar while keeping scroll functionality */
+.hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }

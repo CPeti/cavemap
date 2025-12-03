@@ -322,7 +322,7 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                 </div>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+                <div className="flex-1 overflow-y-auto overscroll-contain p-5 hide-scrollbar">
                     <SidebarContent />
                 </div>
 
@@ -394,7 +394,7 @@ export default function MapSidebar({ selectedCave, isOpen, onClose }) {
                     {/* Scrollable Content */}
                     <div
                         ref={contentRef}
-                        className="flex-1 overflow-y-auto overscroll-contain px-5 py-4"
+                        className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 hide-scrollbar"
                         onTouchStart={handleContentTouchStart}
                         style={{
                             WebkitOverflowScrolling: 'touch',
