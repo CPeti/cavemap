@@ -5,7 +5,8 @@ metadata:
   name: api-ingress
   namespace: default
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: default-strip-api@kubernetescrd,default-oauth2-forward-auth@kubernetescrd
+    # Only strip /api prefix - auth is handled by the service
+    traefik.ingress.kubernetes.io/router.middlewares: default-strip-api@kubernetescrd
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   tls:
