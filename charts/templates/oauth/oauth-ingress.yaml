@@ -7,10 +7,10 @@ spec:
   ingressClassName: {{ .Values.ingress.className }}
   tls:
     - hosts:
-        - auth.{{ .Values.ingress.host }}
+        - {{ .Values.ingress.host }}
       secretName: {{ .Values.ingress.tlsSecret }}
   rules:
-    - host: auth.{{ .Values.ingress.host }}
+    - host: {{ .Values.ingress.host }}
       http:
         paths:
           - path: /oauth2

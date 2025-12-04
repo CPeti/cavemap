@@ -43,14 +43,16 @@ spec:
                   name: oauth2-proxy-credentials
                   key: cookie-secret
           args:
-            - --provider=google
+            - --provider=oidc
+            - --oidc-issuer-url=https://accounts.google.com
+            - --scope=openid email profile
             - --reverse-proxy=true
             - --email-domain=*
             - --client-id=$(CLIENT_ID)
             - --client-secret=$(CLIENT_SECRET)
             - --cookie-secret=$(COOKIE_SECRET)
-            - --redirect-url=https://auth.{{ .Values.ingress.host }}/oauth2/callback
-            - --cookie-domain=.{{ .Values.ingress.host }}
+            - --redirect-url=https://{{ .Values.ingress.host }}/oauth2/callback
+            - --cookie-domain={{ .Values.ingress.host }}
             - --cookie-path=/
             - --whitelist-domain=.{{ .Values.ingress.host }}
             - --http-address=0.0.0.0:4180

@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  user-service:
+    build: .
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - MONGODB_URI=mongodb://mongodb:27017/cavemap_users
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+    depends_on:
+      - mongodb
+    networks:
+      - cavemap-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7-jammy
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=cavemap_users
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - cavemap-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  cavemap-network:
+    driver: bridge

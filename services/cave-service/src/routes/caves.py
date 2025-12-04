@@ -19,17 +19,6 @@ def health():
     return {"status": "ok"}
 
 
-# --- Current user endpoint ---
-# Returns user info if authenticated, 401 otherwise
-# Used by frontend to check auth status
-@router.get("/me")
-async def get_me(user: User = Depends(require_auth)):
-    """Get current authenticated user info."""
-    return {
-        "email": user.email,
-        "user": user.user,
-        "authenticated": True
-    }
 
 
 # --- Zone list endpoint ---

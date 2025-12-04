@@ -8,7 +8,16 @@ docker_build(
 )
 
 docker_build(
-    'frontend-image', 
+    'user-service-image',
+    './services/user-service',
+    dockerfile='./services/user-service/Dockerfile',
+    live_update=[
+        sync('./services/user-service/src', '/usr/src/app'),
+    ]
+)
+
+docker_build(
+    'frontend-image',
     './frontend',
     dockerfile='./frontend/Dockerfile.dev',
     live_update=[
@@ -18,10 +27,11 @@ docker_build(
 
 k8s_yaml(
     helm(
-        './charts',                               
+        './charts',
         values=['./charts/values.yaml'],
         set=[
             'caveService.image=cave-service-image',
+            'userService.image=user-service-image',
             'frontend.image=frontend-image',
         ]
     )

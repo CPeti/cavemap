@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.userService.replicas }}
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      initContainers:
+        # Wait for MongoDB to be ready
+        - name: wait-for-mongodb
+          image: mongo:7-jammy
+          command:
+            - sh
+            - -c
+            - |
+              until mongosh --host {{ .Values.mongodb.name }}.{{ .Values.namespace }}.svc.cluster.local --port 27017 --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
+                echo "Waiting for MongoDB..."
+                sleep 2
+              done
+      containers:
+        - name: user-service
+          image: {{ .Values.userService.image }}
+          ports:
+            - containerPort: {{ .Values.userService.containerPort }}
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.userService.nodeEnv }}
+            - name: PORT
+              value: {{ .Values.userService.containerPort | quote }}
+            - name: MONGODB_URI
+              value: "mongodb://{{ .Values.mongodb.user }}:{{ .Values.mongodb.password }}@{{ .Values.mongodb.name }}.{{ .Values.namespace }}.svc.cluster.local:27017/{{ .Values.mongodb.database }}?authSource=admin"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.userService.containerPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.userService.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: {{ .Values.userService.port }}
+      targetPort: {{ .Values.userService.containerPort }}
+      protocol: TCP
+  type: ClusterIP

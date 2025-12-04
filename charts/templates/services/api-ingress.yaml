@@ -24,4 +24,18 @@ spec:
                 name: cave-service
                 port:
                   number: 80
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
 {{- end }}
