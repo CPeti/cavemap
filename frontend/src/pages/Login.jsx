@@ -8,7 +8,7 @@ export default function Login() {
 
     const handleGoogleSignIn = () => {
         // Redirect to OAuth2 proxy with the intended destination
-        window.location.href = `https://auth.localhost.me/oauth2/start?rd=${encodeURIComponent(
+        window.location.href = `https://localhost.me/oauth2/start?rd=${encodeURIComponent(
             window.location.origin + redirectUrl
         )}`;
     };

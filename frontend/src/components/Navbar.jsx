@@ -13,7 +13,7 @@ export default function Navbar() {
     useEffect(() => {
         async function checkAuth() {
             try {
-                const response = await fetch("https://localhost.me/api/caves/me", {
+                const response = await fetch("https://localhost.me/api/users/me", {
                     credentials: "include"
                 });
                 
@@ -49,7 +49,7 @@ export default function Navbar() {
     };
 
     const handleSignOut = () => {
-        window.location.href = "https://auth.localhost.me/oauth2/sign_out?rd=" + 
+        window.location.href = "https://localhost.me/oauth2/sign_out?rd=" + 
             encodeURIComponent(window.location.origin);
     };
 
@@ -57,7 +57,7 @@ export default function Navbar() {
     const loggedInMenuItems = [
         {
             name: 'Your Profile',
-            href: '#',
+            href: '/profile',
             icon: (
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

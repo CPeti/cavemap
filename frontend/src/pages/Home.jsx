@@ -31,7 +31,7 @@ export default function Home() {
 
                 if (response.status === 401) {
                     window.location.href =
-                        "https://auth.localhost.me/oauth2/sign_in?rd=" +
+                        "https://localhost.me/oauth2/sign_in?rd=" +
                         encodeURIComponent(window.location.href);
                     return;
                 }

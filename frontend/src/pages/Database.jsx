@@ -78,7 +78,7 @@ export default function Database() {
             });
 
             if (response.status === 401) {
-                window.location.href = "https://auth.localhost.me/oauth2/sign_in?rd=" +
+                window.location.href = "https://localhost.me/oauth2/sign_in?rd=" +
                     encodeURIComponent(window.location.href);
                 return;
             }
