@@ -65,7 +65,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 // PUT /users/me - Update current user profile
 router.put('/me', authenticateToken, async (req, res) => {
   try {
-    const allowedUpdates = ['firstName', 'lastName', 'avatar', 'bio'];
+    const allowedUpdates = ['username', 'firstName', 'lastName', 'avatar', 'bio'];
     const updates = {};
 
     allowedUpdates.forEach(field => {

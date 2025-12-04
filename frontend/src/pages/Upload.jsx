@@ -22,7 +22,7 @@ const emptyForm = {
     horizontal_extent: "",
 };
 
-const FormInput = ({ label, name, value, onChange, type = "text", placeholder, required, unit }) => (
+const FormInput = ({ label, name, value, onChange, type = "text", placeholder, required, unit, min, max }) => (
     <div>
         <label className="block text-xs font-medium text-slate-400 mb-1.5">
             {label} {required && <span className="text-red-400">*</span>}
@@ -35,6 +35,8 @@ const FormInput = ({ label, name, value, onChange, type = "text", placeholder, r
                 onChange={onChange}
                 placeholder={placeholder}
                 required={required}
+                min={min}
+                max={max}
                 step={type === "number" ? "any" : undefined}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -185,6 +187,34 @@ export default function Upload() {
             return;
         }
 
+        // Validate survey dates
+        const currentYear = new Date().getFullYear();
+        const firstSurveyed = formData.first_surveyed ? parseInt(formData.first_surveyed) : null;
+        const lastSurveyed = formData.last_surveyed ? parseInt(formData.last_surveyed) : null;
+
+        // Validate year ranges
+        if (firstSurveyed && (firstSurveyed < 1800 || firstSurveyed > currentYear)) {
+            setError(`First surveyed year must be between 1800 and ${currentYear}.`);
+            return;
+        }
+
+        if (lastSurveyed && (lastSurveyed < 1800 || lastSurveyed > currentYear)) {
+            setError(`Last surveyed year must be between 1800 and ${currentYear}.`);
+            return;
+        }
+
+        // Validate chronological order
+        if (firstSurveyed && lastSurveyed && firstSurveyed >= lastSurveyed) {
+            setError("First surveyed year must be earlier than last surveyed year.");
+            return;
+        }
+
+        // If only last surveyed is provided, ensure it's not in the future
+        if (!firstSurveyed && lastSurveyed && lastSurveyed > currentYear) {
+            setError(`Last surveyed year cannot be in the future.`);
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -301,16 +331,22 @@ export default function Upload() {
                             <FormInput
                                 label="First Surveyed"
                                 name="first_surveyed"
-                                type="date"
+                                type="number"
                                 value={formData.first_surveyed}
                                 onChange={handleChange}
+                                placeholder="e.g., 2020"
+                                min="1800"
+                                max={new Date().getFullYear()}
                             />
                             <FormInput
-                                label="Last Surveyed"
+                                label="Last Surveyed (Optional)"
                                 name="last_surveyed"
-                                type="date"
+                                type="number"
                                 value={formData.last_surveyed}
                                 onChange={handleChange}
+                                placeholder="e.g., 2024"
+                                min="1800"
+                                max={new Date().getFullYear()}
                             />
                         </div>
                     </div>
