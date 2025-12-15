@@ -92,16 +92,20 @@ async def create_cave(
 @router.get("/", response_model=list[CaveRead])
 async def list_caves(
     session: AsyncSession = Depends(get_session),
+    search: Optional[str] = Query(None, description="Search caves by name (case-insensitive)"),
     zone: Optional[str] = Query(None, description="Filter by zone"),
     depth_min: Optional[float] = Query(None, description="Minimum vertical extent (depth)"),
     depth_max: Optional[float] = Query(None, description="Maximum vertical extent (depth)"),
     length_min: Optional[float] = Query(None, description="Minimum length"),
     length_max: Optional[float] = Query(None, description="Maximum length"),
+    limit: Optional[int] = Query(None, description="Limit number of results"),
 ):
     """List caves with optional filtering."""
     query = select(Cave).options(selectinload(Cave.entrances))
     
     # Apply filters
+    if search:
+        query = query.where(Cave.name.ilike(f"%{search}%"))
     if zone:
         query = query.where(Cave.zone == zone)
     if depth_min is not None:
@@ -114,6 +118,8 @@ async def list_caves(
         query = query.where(Cave.length <= length_max)
     
     query = query.order_by(Cave.name)
+    if limit is not None:
+        query = query.limit(limit)
     result = await session.execute(query)
     return result.scalars().unique().all()
 

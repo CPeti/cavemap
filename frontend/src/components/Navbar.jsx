@@ -1,13 +1,22 @@
 import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
-import { Bars3Icon, BellIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { Bars3Icon, BellIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 export default function Navbar() {
     const location = useLocation()
+    const navigate = useNavigate()
     const [isLoggedIn, setIsLoggedIn] = useState(false)
     const [userEmail, setUserEmail] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+    const searchRef = useRef(null)
+    const searchTimeoutRef = useRef(null)
 
     // Check authentication status
     useEffect(() => {
@@ -34,6 +43,65 @@ export default function Navbar() {
             }
         }
         checkAuth();
+    }, []);
+
+    // Search caves with debounce
+    const searchCaves = useCallback(async (query) => {
+        if (!query || query.length < 2) {
+            setSearchResults([]);
+            setShowSearchDropdown(false);
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            const response = await fetch(
+                `https://localhost.me/api/caves/?search=${encodeURIComponent(query)}&limit=8`,
+                { credentials: "include" }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setSearchResults(data);
+                setShowSearchDropdown(true);
+            }
+        } catch (error) {
+            console.error("Search failed:", error);
+        } finally {
+            setIsSearching(false);
+        }
+    }, []);
+
+    // Debounced search handler
+    const handleSearchChange = (e) => {
+        const query = e.target.value;
+        setSearchQuery(query);
+        
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+        
+        searchTimeoutRef.current = setTimeout(() => {
+            searchCaves(query);
+        }, 300);
+    };
+
+    // Handle cave selection from search
+    const handleCaveSelect = (caveId) => {
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowSearchDropdown(false);
+        navigate(`/cave/${caveId}`);
+    };
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowSearchDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const navigation = [
@@ -150,6 +218,66 @@ export default function Navbar() {
                         </div>
                     </div>
 
+                    {/* Search Bar */}
+                    <div className="hidden sm:block flex-1 max-w-md mx-4" ref={searchRef}>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                {isSearching ? (
+                                    <div className="w-4 h-4 border-2 border-slate-600 border-t-teal-400 rounded-full animate-spin" />
+                                ) : (
+                                    <MagnifyingGlassIcon className="h-4 w-4 text-slate-500" />
+                                )}
+                            </div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={handleSearchChange}
+                                onFocus={() => searchQuery.length >= 2 && searchResults.length > 0 && setShowSearchDropdown(true)}
+                                placeholder="Search caves..."
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                            />
+                            
+                            {/* Search Results Dropdown */}
+                            {showSearchDropdown && searchResults.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                                    <div className="py-1 max-h-80 overflow-y-auto">
+                                        {searchResults.map((cave) => (
+                                            <button
+                                                key={cave.cave_id}
+                                                onClick={() => handleCaveSelect(cave.cave_id)}
+                                                className="w-full px-4 py-3 flex items-start gap-3 hover:bg-slate-700/50 transition-colors text-left"
+                                            >
+                                                <div className="p-1.5 bg-slate-700 rounded-lg mt-0.5">
+                                                    <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{cave.name}</p>
+                                                    <p className="text-xs text-slate-500 truncate">
+                                                        {cave.zone || 'Unknown zone'}
+                                                        {cave.depth && ` · ${cave.depth}m deep`}
+                                                        {cave.length && ` · ${cave.length}m long`}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* No results message */}
+                            {showSearchDropdown && searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                                    <div className="px-4 py-6 text-center">
+                                        <MagnifyingGlassIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                                        <p className="text-sm text-slate-500">No caves found for "{searchQuery}"</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Right side actions */}
                     <div className="flex items-center">
                         {/* Notifications - only show when logged in */}
@@ -233,6 +361,63 @@ export default function Navbar() {
             {/* Mobile menu */}
             <DisclosurePanel className="sm:hidden">
                 <div className="px-4 pt-2 pb-3 space-y-1 bg-slate-900 border-t border-slate-800">
+                    {/* Mobile Search Bar */}
+                    <div className="relative mb-3" ref={searchRef}>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            {isSearching ? (
+                                <div className="w-4 h-4 border-2 border-slate-600 border-t-teal-400 rounded-full animate-spin" />
+                            ) : (
+                                <MagnifyingGlassIcon className="h-4 w-4 text-slate-500" />
+                            )}
+                        </div>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            onFocus={() => searchQuery.length >= 2 && searchResults.length > 0 && setShowSearchDropdown(true)}
+                            placeholder="Search caves..."
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        />
+                        
+                        {/* Mobile Search Results Dropdown */}
+                        {showSearchDropdown && searchResults.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                                <div className="py-1 max-h-64 overflow-y-auto">
+                                    {searchResults.map((cave) => (
+                                        <DisclosureButton
+                                            key={cave.cave_id}
+                                            as="button"
+                                            onClick={() => handleCaveSelect(cave.cave_id)}
+                                            className="w-full px-4 py-3 flex items-start gap-3 hover:bg-slate-700/50 transition-colors text-left"
+                                        >
+                                            <div className="p-1.5 bg-slate-700 rounded-lg mt-0.5">
+                                                <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-white truncate">{cave.name}</p>
+                                                <p className="text-xs text-slate-500 truncate">
+                                                    {cave.zone || 'Unknown zone'}
+                                                    {cave.depth && ` · ${cave.depth}m`}
+                                                </p>
+                                            </div>
+                                        </DisclosureButton>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Mobile No results */}
+                        {showSearchDropdown && searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                                <div className="px-4 py-4 text-center">
+                                    <p className="text-sm text-slate-500">No caves found</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
                     {navigation.map((item) => (
                         <DisclosureButton
                             key={item.name}
