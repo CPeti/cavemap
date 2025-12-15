@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
+import { getOAuthUrl } from "../config";
 
 export default function Login() {
     const location = useLocation();
@@ -8,7 +9,7 @@ export default function Login() {
 
     const handleGoogleSignIn = () => {
         // Redirect to OAuth2 proxy with the intended destination
-        window.location.href = `https://localhost.me/oauth2/start?rd=${encodeURIComponent(
+        window.location.href = `${getOAuthUrl('/start')}?rd=${encodeURIComponent(
             window.location.origin + redirectUrl
         )}`;
     };

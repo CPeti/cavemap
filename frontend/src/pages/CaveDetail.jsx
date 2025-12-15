@@ -10,6 +10,7 @@ import {
     TagIcon,
     GlobeAltIcon,
 } from "@heroicons/react/24/outline";
+import { getApiUrl, getOAuthUrl } from "../config";
 
 const InfoItem = ({ label, value, unit }) => (
     <div className="flex items-center justify-between py-2">
@@ -46,12 +47,12 @@ export default function CaveDetail() {
     useEffect(() => {
         async function fetchCave() {
             try {
-                const res = await fetch(`https://localhost.me/api/caves/${caveId}`, {
+                const res = await fetch(getApiUrl(`/caves/${caveId}`), {
                     credentials: "include",
                 });
 
                 if (res.status === 401) {
-                    window.location.href = "https://localhost.me/oauth2/sign_in?rd=" +
+                    window.location.href = getOAuthUrl("/sign_in") + "?rd=" +
                         encodeURIComponent(window.location.href);
                     return;
                 }

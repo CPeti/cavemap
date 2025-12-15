@@ -18,6 +18,9 @@ spec:
           image: {{ .Values.frontend.image }}
           ports:
             - containerPort: {{ .Values.frontend.port }}
+          env:
+            - name: API_BASE_URL
+              value: {{ .Values.frontend.apiBaseUrl | default (printf "https://%s" .Values.ingress.host) | quote }}
 ---
 apiVersion: v1
 kind: Service

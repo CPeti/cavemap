@@ -33,6 +33,7 @@ frontend:
   image: cpeti/cave-frontend:latest
   replicas: 1
   port: 80
+  apiBaseUrl: ""  # If empty, defaults to https://{ingress.host}
 
 ingress:
   enabled: true

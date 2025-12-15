@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import CaveTable from "../components/CaveTable";
 import { FunnelIcon, XMarkIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { getApiUrl, getOAuthUrl } from "../config";
 
 const emptyFilters = {
     zone: "",
@@ -47,7 +48,7 @@ export default function Database() {
     useEffect(() => {
         async function fetchZones() {
             try {
-                const response = await fetch("https://localhost.me/api/caves/zones", {
+                const response = await fetch(getApiUrl("/caves/zones"), {
                     credentials: "include"
                 });
                 if (response.ok) {
@@ -72,13 +73,13 @@ export default function Database() {
             if (appliedFilters.lengthMin) params.append("length_min", appliedFilters.lengthMin);
             if (appliedFilters.lengthMax) params.append("length_max", appliedFilters.lengthMax);
 
-            const url = `https://localhost.me/api/caves/${params.toString() ? `?${params.toString()}` : ""}`;
+            const url = getApiUrl(`/caves/${params.toString() ? `?${params.toString()}` : ""}`);
             const response = await fetch(url, {
                 credentials: "include"
             });
 
             if (response.status === 401) {
-                window.location.href = "https://localhost.me/oauth2/sign_in?rd=" +
+                window.location.href = getOAuthUrl("/sign_in") + "?rd=" +
                     encodeURIComponent(window.location.href);
                 return;
             }

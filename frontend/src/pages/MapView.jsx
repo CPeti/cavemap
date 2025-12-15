@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import MapSidebar from '../components/MapSidebar';
 import MapControls from '../components/MapControls';
 import { useMapbox } from '../components/use_mapbox_hook';
+import { getApiUrl, getOAuthUrl } from "../config";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -21,12 +22,12 @@ export default function MapView() {
     useEffect(() => {
         async function fetchCaves() {
             try {
-                const response = await fetch("https://localhost.me/api/caves/", {
+                const response = await fetch(getApiUrl("/caves/"), {
                     credentials: "include"
                 });
 
                 if (response.status === 401) {
-                    window.location.href = "https://localhost.me/oauth2/sign_in?rd=" +
+                    window.location.href = getOAuthUrl("/sign_in") + "?rd=" +
                         encodeURIComponent(window.location.href);
                     return;
                 }

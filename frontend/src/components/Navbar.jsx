@@ -2,6 +2,7 @@ import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuIt
 import { Bars3Icon, BellIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { getApiUrl, getOAuthUrl } from '../config'
 
 export default function Navbar() {
     const location = useLocation()
@@ -22,7 +23,7 @@ export default function Navbar() {
     useEffect(() => {
         async function checkAuth() {
             try {
-                const response = await fetch("https://localhost.me/api/users/me", {
+                const response = await fetch(getApiUrl("/users/me"), {
                     credentials: "include"
                 });
                 
@@ -56,7 +57,7 @@ export default function Navbar() {
         setIsSearching(true);
         try {
             const response = await fetch(
-                `https://localhost.me/api/caves/?search=${encodeURIComponent(query)}&limit=8`,
+                getApiUrl(`/caves/?search=${encodeURIComponent(query)}&limit=8`),
                 { credentials: "include" }
             );
             if (response.ok) {
@@ -117,7 +118,7 @@ export default function Navbar() {
     };
 
     const handleSignOut = () => {
-        window.location.href = "https://localhost.me/oauth2/sign_out?rd=" + 
+        window.location.href = getOAuthUrl("/sign_out") + "?rd=" + 
             encodeURIComponent(window.location.origin);
     };
 

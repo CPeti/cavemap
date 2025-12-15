@@ -8,9 +8,13 @@ RUN npm install
 # Copy source
 COPY . .
 
+# Copy entrypoint script for env var translation
+COPY docker-entrypoint.dev.sh /docker-entrypoint.dev.sh
+RUN chmod +x /docker-entrypoint.dev.sh
+
 # Expose Vite/React dev server port (default 5173 or 3000)
 EXPOSE 80
 
-# Dev command (Vite) — change to "npm start" for CRA
-CMD ["npm", "run", "dev", "--", "--port", "80", "--host", "0.0.0.0"]
+# Use entrypoint to translate API_BASE_URL to VITE_API_BASE_URL
+ENTRYPOINT ["/docker-entrypoint.dev.sh"]
 

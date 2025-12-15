@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PlusIcon, TrashIcon, MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import CoordinateInput from "../components/CoordinateInput";
+import { getApiUrl } from "../config";
 
 const emptyEntrance = {
     name: "",
@@ -237,7 +238,7 @@ export default function Upload() {
                 })),
             };
 
-            const response = await fetch("https://localhost.me/api/caves/", {
+            const response = await fetch(getApiUrl("/caves/"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -7,6 +7,7 @@ import {
     ArrowRightOnRectangleIcon,
     ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
+import { getApiUrl, getOAuthUrl } from "../config";
 
 export default function Profile() {
     const navigate = useNavigate();
@@ -75,7 +76,7 @@ export default function Profile() {
                 return;
             }
 
-            const response = await fetch("https://localhost.me/api/users/me", {
+            const response = await fetch(getApiUrl("/users/me"), {
                 method: 'PUT',
                 credentials: "include",
                 headers: {
@@ -118,7 +119,7 @@ export default function Profile() {
             setError(null);
 
             // Fetch user profile
-            const profileResponse = await fetch("https://localhost.me/api/users/me", {
+            const profileResponse = await fetch(getApiUrl("/users/me"), {
                 credentials: "include",
             });
 
@@ -171,7 +172,7 @@ export default function Profile() {
 
     async function handleDeleteProfile() {
         try {
-            const response = await fetch("https://localhost.me/api/users/me", {
+            const response = await fetch(getApiUrl("/users/me"), {
                 method: 'DELETE',
                 credentials: "include",
             });
@@ -182,7 +183,7 @@ export default function Profile() {
             }
 
             // Sign out after successful deletion
-            window.location.href = "https://localhost.me/oauth2/sign_out?rd=" + encodeURIComponent("/");
+            window.location.href = getOAuthUrl("/sign_out") + "?rd=" + encodeURIComponent("/");
         } catch (err) {
             console.error("Error deleting profile:", err);
             setError(err.message || "Failed to delete profile");
@@ -191,7 +192,7 @@ export default function Profile() {
     }
 
     function handleSignOut() {
-        window.location.href = "https://localhost.me/oauth2/sign_out?rd=" + encodeURIComponent("/");
+        window.location.href = getOAuthUrl("/sign_out") + "?rd=" + encodeURIComponent("/");
     }
 
     if (loading) {

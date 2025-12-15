@@ -8,6 +8,7 @@ import {
     GlobeAltIcon,
     ChartBarIcon,
 } from "@heroicons/react/24/outline";
+import { getApiUrl, getOAuthUrl } from "../config";
 
 export default function Home() {
     const [caves, setCaves] = useState([]);
@@ -25,13 +26,13 @@ export default function Home() {
     useEffect(() => {
         async function fetchCaves() {
             try {
-                const response = await fetch("https://localhost.me/api/caves/", {
+                const response = await fetch(getApiUrl("/caves/"), {
                     credentials: "include",
                 });
 
                 if (response.status === 401) {
                     window.location.href =
-                        "https://localhost.me/oauth2/sign_in?rd=" +
+                        getOAuthUrl("/sign_in") + "?rd=" +
                         encodeURIComponent(window.location.href);
                     return;
                 }
