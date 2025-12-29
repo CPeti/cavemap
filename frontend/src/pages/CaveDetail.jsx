@@ -9,6 +9,9 @@ import {
     MapIcon,
     TagIcon,
     GlobeAltIcon,
+    PencilIcon,
+    CheckIcon,
+    XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { getApiUrl, getOAuthUrl } from "../config";
 
@@ -43,6 +46,19 @@ export default function CaveDetail() {
     const [cave, setCave] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editForm, setEditForm] = useState({
+        name: "",
+        zone: "",
+        code: "",
+        first_surveyed: "",
+        last_surveyed: "",
+        length: "",
+        depth: "",
+        vertical_extent: "",
+        horizontal_extent: "",
+    });
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         async function fetchCave() {
@@ -63,6 +79,19 @@ export default function CaveDetail() {
 
                 const data = await res.json();
                 setCave(data);
+
+                // Initialize edit form with current cave data
+                setEditForm({
+                    name: data.name || "",
+                    zone: data.zone || "",
+                    code: data.code || "",
+                    first_surveyed: data.first_surveyed || "",
+                    last_surveyed: data.last_surveyed || "",
+                    length: data.length || "",
+                    depth: data.depth || "",
+                    vertical_extent: data.vertical_extent || "",
+                    horizontal_extent: data.horizontal_extent || "",
+                });
             } catch (err) {
                 console.error("Error fetching cave:", err);
                 setError("Failed to load cave data");
@@ -110,6 +139,92 @@ export default function CaveDetail() {
 
     const entrances = cave.entrances || [];
     const primaryEntrance = entrances[0];
+    const canEdit = cave && cave.is_owner;
+
+    async function handleEditSubmit(e) {
+        e.preventDefault();
+
+        // Basic validation
+        if (!editForm.name.trim()) {
+            alert("Cave name is required");
+            return;
+        }
+
+        // Validate year ranges
+        if (editForm.first_surveyed && editForm.last_surveyed) {
+            const firstYear = parseInt(editForm.first_surveyed);
+            const lastYear = parseInt(editForm.last_surveyed);
+            if (firstYear > lastYear) {
+                alert("First surveyed year cannot be after last surveyed year");
+                return;
+            }
+        }
+
+        if (editForm.last_surveyed && parseInt(editForm.last_surveyed) > new Date().getFullYear()) {
+            alert("Last surveyed year cannot be in the future");
+            return;
+        }
+
+        setSaving(true);
+
+        try {
+            // Build payload
+            const payload = {
+                name: editForm.name.trim(),
+                zone: editForm.zone.trim() || null,
+                code: editForm.code.trim() || null,
+                first_surveyed: editForm.first_surveyed || null,
+                last_surveyed: editForm.last_surveyed || null,
+                length: editForm.length ? parseFloat(editForm.length) : null,
+                depth: editForm.depth ? parseFloat(editForm.depth) : null,
+                vertical_extent: editForm.vertical_extent ? parseFloat(editForm.vertical_extent) : null,
+                horizontal_extent: editForm.horizontal_extent ? parseFloat(editForm.horizontal_extent) : null,
+            };
+
+            const response = await fetch(getApiUrl(`/caves/${caveId}`), {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify(payload),
+            });
+
+            if (response.status === 401) {
+                window.location.href = getOAuthUrl("/sign_in") + "?rd=" +
+                    encodeURIComponent(window.location.href);
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            const updatedCave = await response.json();
+            setCave(updatedCave);
+
+            // Update edit form with new data
+            setEditForm({
+                name: updatedCave.name || "",
+                zone: updatedCave.zone || "",
+                code: updatedCave.code || "",
+                first_surveyed: updatedCave.first_surveyed || "",
+                last_surveyed: updatedCave.last_surveyed || "",
+                length: updatedCave.length || "",
+                depth: updatedCave.depth || "",
+                vertical_extent: updatedCave.vertical_extent || "",
+                horizontal_extent: updatedCave.horizontal_extent || "",
+            });
+
+            setShowEditModal(false);
+        } catch (err) {
+            console.error("Error updating cave:", err);
+            alert("Failed to update cave: " + err.message);
+        } finally {
+            setSaving(false);
+        }
+    }
 
     return (
         <div className="min-h-screen bg-slate-900 pt-16">
@@ -140,19 +255,36 @@ export default function CaveDetail() {
                                         {cave.code}
                                     </span>
                                 )}
+                                {canEdit && (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-green-500/10 text-green-400 rounded text-xs">
+                                        <PencilIcon className="w-3 h-3" />
+                                        You own this cave
+                                    </span>
+                                )}
                             </div>
                         </div>
 
-                        {primaryEntrance && (
-                            <Link
-                                to="/map"
-                                state={{ center: [primaryEntrance.gps_e, primaryEntrance.gps_n], zoom: 15 }}
-                                className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors text-sm font-medium"
-                            >
-                                <MapIcon className="w-4 h-4" />
-                                View on Map
-                            </Link>
-                        )}
+                        <div className="flex gap-3">
+                            {primaryEntrance && (
+                                <Link
+                                    to="/map"
+                                    state={{ center: [primaryEntrance.gps_e, primaryEntrance.gps_n], zoom: 15 }}
+                                    className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors text-sm font-medium"
+                                >
+                                    <MapIcon className="w-4 h-4" />
+                                    View on Map
+                                </Link>
+                            )}
+                            {canEdit && (
+                                <button
+                                    onClick={() => setShowEditModal(true)}
+                                    className="inline-flex items-center gap-2 bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600 hover:text-white transition-colors text-sm font-medium"
+                                >
+                                    <PencilIcon className="w-4 h-4" />
+                                    Edit Cave
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -321,12 +453,186 @@ export default function CaveDetail() {
                             <h2 className="text-sm font-medium text-white mb-4">Database Info</h2>
                             <div className="divide-y divide-slate-700/50">
                                 <InfoItem label="Cave ID" value={cave.cave_id} />
+                                <InfoItem label="Owner" value={cave.owner_username} />
                                 <InfoItem label="Entrances" value={entrances.length} />
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Edit Cave Modal */}
+            {showEditModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
+
+                    <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-white">Edit Cave</h2>
+                            <button
+                                onClick={() => setShowEditModal(false)}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleEditSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Cave Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editForm.name}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Zone
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editForm.zone}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, zone: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="e.g., Zone A"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Code
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editForm.code}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, code: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="e.g., CAV-001"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        First Surveyed
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={editForm.first_surveyed}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, first_surveyed: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="Year"
+                                        min="1800"
+                                        max={new Date().getFullYear()}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Last Surveyed
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={editForm.last_surveyed}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, last_surveyed: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="Year"
+                                        min="1800"
+                                        max={new Date().getFullYear()}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Length (m)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={editForm.length}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, length: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="0.0"
+                                        min="0"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Depth (m)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={editForm.depth}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, depth: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="0.0"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Vertical Extent (m)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={editForm.vertical_extent}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, vertical_extent: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="0.0"
+                                        min="0"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Horizontal Extent (m)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={editForm.horizontal_extent}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, horizontal_extent: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="0.0"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="flex-1 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                >
+                                    {saving ? "Saving..." : "Save Changes"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(false)}
+                                    className="flex-1 bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
