@@ -16,6 +16,7 @@ export default function Profile() {
         cavesUploaded: 0,
         totalLength: 0,
         totalDepth: 0,
+        groupsJoined: 0,
         lastActivity: null,
     });
     const [loading, setLoading] = useState(true);
@@ -153,14 +154,67 @@ export default function Profile() {
                 setIsEditModalOpen(true); // Auto-open edit modal for brand new users
             }
 
-            // For now, use placeholder stats until user-specific cave data is available
-            // TODO: Implement user-specific cave statistics endpoint
+            // Fetch user statistics
+            try {
+                const statsResponse = await fetch(getApiUrl("/caves/stats/me"), {
+                    credentials: "include",
+                });
+
+                if (statsResponse.ok) {
+                    const statsData = await statsResponse.json();
             setStats({
+                        cavesUploaded: statsData.caves_uploaded,
+                        totalLength: statsData.total_length,
+                        totalDepth: statsData.total_depth,
+                        lastActivity: statsData.last_activity,
+                    });
+                } else {
+                    // Use placeholder stats if stats endpoint fails
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        cavesUploaded: 0,
+                        totalLength: 0,
+                        totalDepth: 0,
+                        lastActivity: null,
+                    }));
+                }
+            } catch (statsError) {
+                console.error("Error fetching stats:", statsError);
+                // Use placeholder stats if stats endpoint fails
+                setStats(prevStats => ({
+                    ...prevStats,
                 cavesUploaded: 0,
                 totalLength: 0,
                 totalDepth: 0,
                 lastActivity: null,
-            });
+                }));
+            }
+
+            // Fetch user's groups to get group count
+            try {
+                const groupsResponse = await fetch(getApiUrl("/groups/me"), {
+                    credentials: "include",
+                });
+
+                if (groupsResponse.ok) {
+                    const groupsData = await groupsResponse.json();
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        groupsJoined: groupsData.length,
+                    }));
+                } else {
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        groupsJoined: 0,
+                    }));
+                }
+            } catch (groupsError) {
+                console.error("Error fetching groups:", groupsError);
+                setStats(prevStats => ({
+                    ...prevStats,
+                    groupsJoined: 0,
+                }));
+            }
 
         } catch (err) {
             console.error("Error fetching profile:", err);
@@ -447,12 +501,9 @@ export default function Profile() {
                                 </div>
                                 <div className="text-center">
                                     <div className="text-2xl font-semibold text-white">
-                                        {stats.lastActivity ?
-                                            new Date(stats.lastActivity).getFullYear() :
-                                            "—"
-                                        }
+                                        {stats.groupsJoined}
                                     </div>
-                                    <div className="text-xs text-slate-400">Last Activity</div>
+                                    <div className="text-xs text-slate-400">Groups Joined</div>
                                 </div>
                             </div>
                         </div>

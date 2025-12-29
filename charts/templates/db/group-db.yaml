@@ -1,0 +1,19 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.groupDb.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  instances: {{ .Values.groupDb.replicas}}
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  storage:
+    size: {{ .Values.groupDb.storage }}
+  bootstrap:
+    initdb:
+      owner: {{ .Values.groupDb.user }}
+      database: {{ .Values.groupDb.database }}
+      secret:
+        name: {{ .Values.groupDb.name }}-secret
+  monitoring:
+    enabled: false
+

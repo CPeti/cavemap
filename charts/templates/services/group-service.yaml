@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: group-service
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.groupService.replicas }}
+  selector:
+    matchLabels:
+      app: group-service
+  template:
+    metadata:
+      labels:
+        app: group-service
+    spec:
+      initContainers:
+        # Wait for DB to be ready
+        - name: wait-for-db
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ .Values.groupDb.name }}-rw.{{ .Values.namespace }}.svc.cluster.local -p 5432; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+
+        # Run Alembic migrations
+        - name: run-migrations
+          image: {{ .Values.groupService.image }}
+          command:
+            - sh
+            - -c
+            - |
+              echo "Running Alembic migrations..."
+              alembic -c /app/alembic.ini upgrade head
+          env:
+            - name: DB_URL_SYNC
+              value: postgresql+psycopg://{{ .Values.groupDb.user }}:{{ .Values.groupDb.password }}@{{ .Values.groupDb.name }}-rw.{{ .Values.namespace }}.svc.cluster.local:5432/{{ .Values.groupDb.database }}
+      containers:
+        - name: group-service
+          image: {{ .Values.groupService.image }}
+          ports:
+            - containerPort: {{ .Values.groupService.containerPort }}
+          env:
+            - name: DB_URL
+              value: "postgresql+asyncpg://{{ .Values.groupDb.user }}:{{ .Values.groupDb.password }}@{{ .Values.groupDb.name }}-rw:5432/{{ .Values.groupDb.database }}"
+            - name: DB_URL_SYNC
+              value: "postgresql+psycopg://{{ .Values.groupDb.user }}:{{ .Values.groupDb.password }}@{{ .Values.groupDb.name }}-rw:5432/{{ .Values.groupDb.database }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: group-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: group-service
+  ports:
+    - port: {{ .Values.groupService.port }}
+      targetPort: {{ .Values.groupService.containerPort }}
+      protocol: TCP
+  type: ClusterIP
+

@@ -8,6 +8,8 @@ import Upload from "./pages/Upload";
 import CaveDetail from "./pages/CaveDetail";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
+import Groups from "./pages/Groups";
+import GroupDetail from "./pages/GroupDetail";
 
 function AppContent() {
   const location = useLocation();
@@ -21,6 +23,8 @@ function AppContent() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/groups" element={<Groups />} />
+          <Route path="/groups/:groupId" element={<GroupDetail />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/caves" element={<Database />} />
           <Route path="/upload" element={<Upload />} />

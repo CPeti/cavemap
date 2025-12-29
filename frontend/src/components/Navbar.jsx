@@ -109,6 +109,7 @@ export default function Navbar() {
         { name: 'Home', href: '/', current: location.pathname === '/' },
         { name: 'Map', href: '/map', current: location.pathname === '/map' },
         { name: 'Cadaster', href: '/caves', current: location.pathname === '/caves' },
+        { name: 'Groups', href: '/groups', current: location.pathname.startsWith('/groups') },
         { name: 'Upload', href: '/upload', current: location.pathname === '/upload' }
     ]
 

@@ -17,6 +17,15 @@ docker_build(
 )
 
 docker_build(
+    'group-service-image',
+    './services/group-service',
+    dockerfile='./services/group-service/Dockerfile',
+    live_update=[
+        sync('./services/group-service', '/app'),
+    ]
+)
+
+docker_build(
     'frontend-image',
     './frontend',
     dockerfile='./frontend/Dockerfile.dev',
@@ -32,6 +41,7 @@ k8s_yaml(
         set=[
             'caveService.image=cave-service-image',
             'userService.image=user-service-image',
+            'groupService.image=group-service-image',
             'frontend.image=frontend-image',
         ]
     )

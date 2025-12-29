@@ -35,7 +35,14 @@ class CaveCreate(CaveBase):
 
 class CaveRead(CaveBase):
     cave_id: int
+    owner_email: str
     entrances: List[EntranceRead] = []
 
     class Config:
         from_attributes = True
+
+class UserStats(BaseModel):
+    """Statistics for a user."""
+    caves_uploaded: int
+    total_length: float
+    total_depth: float

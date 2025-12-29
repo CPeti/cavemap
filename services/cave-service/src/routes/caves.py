@@ -1,11 +1,12 @@
 from src.models.cave import Cave, Entrance
-from src.schemas.cave import CaveCreate, CaveRead
+from src.schemas.cave import CaveCreate, CaveRead, UserStats
 from src.auth import User, get_current_user, require_auth
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 from src.db.connection import get_session
 from typing import Optional
 
@@ -63,7 +64,8 @@ async def create_cave(
         length=cave.length,
         depth=cave.depth,
         vertical_extent=cave.vertical_extent,
-        horizontal_extent=cave.horizontal_extent
+        horizontal_extent=cave.horizontal_extent,
+        owner_email=user.email
     )
     session.add(new_cave)
     
@@ -137,3 +139,40 @@ async def get_cave(cave_id: int, session: AsyncSession = Depends(get_session)):
     if cave is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
     return cave
+
+
+# --- Get user statistics endpoint ---
+# Protected - requires authentication
+@router.get("/stats/me", response_model=UserStats)
+async def get_user_stats(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Get statistics for the authenticated user."""
+
+    # Get count of caves uploaded by this user
+    caves_count_result = await session.execute(
+        select(func.count(Cave.cave_id))
+        .where(Cave.owner_email == user.email)
+    )
+    caves_uploaded = caves_count_result.scalar() or 0
+
+    # Get sum of lengths for caves uploaded by this user
+    total_length_result = await session.execute(
+        select(func.sum(Cave.length))
+        .where(Cave.owner_email == user.email, Cave.length.isnot(None))
+    )
+    total_length = total_length_result.scalar() or 0.0
+
+    # Get sum of depths for caves uploaded by this user
+    total_depth_result = await session.execute(
+        select(func.sum(Cave.depth))
+        .where(Cave.owner_email == user.email, Cave.depth.isnot(None))
+    )
+    total_depth = total_depth_result.scalar() or 0.0
+
+    return UserStats(
+        caves_uploaded=caves_uploaded,
+        total_length=total_length,
+        total_depth=total_depth
+    )

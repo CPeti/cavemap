@@ -31,6 +31,13 @@ spec:
                 name: user-service
                 port:
                   number: 80
+          - path: /api/groups
+            pathType: Prefix
+            backend:
+              service:
+                name: group-service
+                port:
+                  number: 80
           - path: /oauth2
             pathType: Prefix
             backend:

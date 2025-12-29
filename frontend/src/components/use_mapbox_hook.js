@@ -278,7 +278,7 @@ export function useMapbox({
                         maxzoom: 14,
                     });
                 }
-                map.setTerrain({ source: "mapbox-dem", exaggeration: 2 });
+                map.setTerrain({ source: "mapbox-dem", exaggeration: 1 });
                 map.setPitch(60);
             } else {
                 map.setTerrain(null);

@@ -21,6 +21,7 @@ const emptyForm = {
     depth: "",
     vertical_extent: "",
     horizontal_extent: "",
+    group_id: "",
 };
 
 const FormInput = ({ label, name, value, onChange, type = "text", placeholder, required, unit, min, max }) => (
@@ -137,7 +138,27 @@ export default function Upload() {
     const [entrances, setEntrances] = useState([{ ...emptyEntrance }]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [userGroups, setUserGroups] = useState([]);
     const [showLoginModal, setShowLoginModal] = useState(false);
+
+    // Fetch user's groups
+    React.useEffect(() => {
+        const fetchUserGroups = async () => {
+            try {
+                const response = await fetch(getApiUrl("/groups/me"), {
+                    credentials: "include",
+                });
+                if (response.ok) {
+                    const groups = await response.json();
+                    setUserGroups(groups);
+                }
+            } catch (error) {
+                console.error("Failed to fetch user groups:", error);
+            }
+        };
+
+        fetchUserGroups();
+    }, []);
 
     function handleChange(e) {
         const { name, value } = e.target;
@@ -260,6 +281,30 @@ export default function Upload() {
             }
 
             const createdCave = await response.json();
+
+            // If a group was selected, assign the cave to it
+            if (formData.group_id) {
+                try {
+                    const assignResponse = await fetch(getApiUrl(`/groups/${formData.group_id}/caves`), {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        credentials: "include",
+                        body: JSON.stringify({
+                            cave_id: createdCave.cave_id,
+                        }),
+                    });
+
+                    if (!assignResponse.ok) {
+                        // Log the error but don't fail the upload
+                        console.error("Failed to assign cave to group:", await assignResponse.text());
+                    }
+                } catch (error) {
+                    console.error("Error assigning cave to group:", error);
+                }
+            }
+
             navigate(`/cave/${createdCave.cave_id}`);
         } catch (err) {
             console.error(err);
@@ -322,6 +367,24 @@ export default function Upload() {
                                 onChange={handleChange}
                                 placeholder="e.g., CAV-001"
                             />
+                            <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                                    Assign to Group (Optional)
+                                </label>
+                                <select
+                                    name="group_id"
+                                    value={formData.group_id}
+                                    onChange={handleChange}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                >
+                                    <option value="">No group assignment</option>
+                                    {userGroups.map((group) => (
+                                        <option key={group.group_id} value={group.group_id}>
+                                            {group.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 

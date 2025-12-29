@@ -51,7 +51,7 @@ export default function Login() {
 
                         {/* Title */}
                         <div className="text-center mb-8">
-                            <h1 className="text-2xl font-semibold text-white mb-2">Welcome back</h1>
+                            <h1 className="text-2xl font-semibold text-white mb-2">Welcome!</h1>
                             <p className="text-slate-400 text-sm">
                                 Sign in to access the cave database and mapping tools
                             </p>

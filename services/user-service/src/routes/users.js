@@ -112,6 +112,32 @@ router.put('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /users/lookup - Get usernames by emails
+router.post('/lookup', async (req, res) => {
+  try {
+    const { emails } = req.body;
+    
+    if (!emails || !Array.isArray(emails)) {
+      return res.status(400).json({ error: 'emails array is required' });
+    }
+
+    const users = await User.find({ email: { $in: emails } })
+      .select('email username')
+      .lean();
+
+    // Create a map of email -> username
+    const emailToUsername = {};
+    users.forEach(user => {
+      emailToUsername[user.email] = user.username;
+    });
+
+    res.json(emailToUsername);
+  } catch (error) {
+    console.error('Error looking up users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /users/:id - Get user by ID (public profile)
 router.get('/:id', async (req, res) => {
   try {

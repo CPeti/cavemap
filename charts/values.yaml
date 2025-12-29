@@ -29,6 +29,20 @@ userService:
   containerPort: 3002
   nodeEnv: production
 
+groupService:
+  image: cpeti/group-service:latest
+  replicas: 1
+  port: 80
+  containerPort: 8000
+
+groupDb:
+  name: group-db
+  user: group_user
+  password: group_password
+  database: group_db
+  storage: 1Gi
+  replicas: 1
+
 frontend:
   image: cpeti/cave-frontend:latest
   replicas: 1

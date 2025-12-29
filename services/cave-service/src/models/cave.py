@@ -16,6 +16,7 @@ class Cave(Base):
     depth: Mapped[Optional[float]] = mapped_column(Float)
     vertical_extent: Mapped[Optional[float]] = mapped_column(Float)
     horizontal_extent: Mapped[Optional[float]] = mapped_column(Float)
+    owner_email = Column(String, nullable=False)  # User who uploaded the cave
 
     entrances = relationship("Entrance", back_populates="cave")
 
