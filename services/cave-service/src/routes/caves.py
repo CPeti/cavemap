@@ -1,5 +1,5 @@
 from src.models.cave import Cave, Entrance
-from src.schemas.cave import CaveCreate, CaveRead, UserStats
+from src.schemas.cave import CaveCreate, CaveRead, UserStats, EntranceCreate, EntranceRead
 from src.auth import User, get_current_user, require_auth
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -145,6 +145,136 @@ async def create_cave(
     }
 
     return cave_dict
+
+
+# --- Create entrance for a cave ---
+# Protected - requires authentication and cave ownership
+@router.post("/{cave_id}/entrances", response_model=EntranceRead, status_code=status.HTTP_201_CREATED)
+async def create_entrance(
+    cave_id: int,
+    entrance: EntranceCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Create a new entrance for a cave. Only the cave owner can add entrances."""
+
+    # Get the cave and check ownership
+    result = await session.execute(
+        select(Cave).where(Cave.cave_id == cave_id)
+    )
+    cave = result.scalar_one_or_none()
+    if cave is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    if cave.owner_email != user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only add entrances to caves that you own"
+        )
+
+    # Create entrance
+    new_entrance = Entrance(
+        cave_id=cave_id,
+        name=entrance.name,
+        gps_n=entrance.gps_n,
+        gps_e=entrance.gps_e,
+        asl_m=entrance.asl_m
+    )
+    session.add(new_entrance)
+    await session.commit()
+    await session.refresh(new_entrance)
+
+    return new_entrance
+
+
+# --- Update entrance ---
+# Protected - requires authentication and cave ownership
+@router.put("/{cave_id}/entrances/{entrance_id}", response_model=EntranceRead)
+async def update_entrance(
+    cave_id: int,
+    entrance_id: int,
+    entrance_update: EntranceCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Update an entrance. Only the cave owner can modify entrances."""
+
+    # Get the cave and check ownership
+    result = await session.execute(
+        select(Cave).where(Cave.cave_id == cave_id)
+    )
+    cave = result.scalar_one_or_none()
+    if cave is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    if cave.owner_email != user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only modify entrances of caves that you own"
+        )
+
+    # Get the entrance
+    result = await session.execute(
+        select(Entrance).where(
+            Entrance.entrance_id == entrance_id,
+            Entrance.cave_id == cave_id
+        )
+    )
+    entrance = result.scalar_one_or_none()
+    if entrance is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entrance not found")
+
+    # Update entrance fields
+    entrance.name = entrance_update.name
+    entrance.gps_n = entrance_update.gps_n
+    entrance.gps_e = entrance_update.gps_e
+    entrance.asl_m = entrance_update.asl_m
+
+    await session.commit()
+    await session.refresh(entrance)
+
+    return entrance
+
+
+# --- Delete entrance ---
+# Protected - requires authentication and cave ownership
+@router.delete("/{cave_id}/entrances/{entrance_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_entrance(
+    cave_id: int,
+    entrance_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Delete an entrance. Only the cave owner can delete entrances."""
+
+    # Get the cave and check ownership
+    result = await session.execute(
+        select(Cave).where(Cave.cave_id == cave_id)
+    )
+    cave = result.scalar_one_or_none()
+    if cave is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    if cave.owner_email != user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete entrances of caves that you own"
+        )
+
+    # Get the entrance
+    result = await session.execute(
+        select(Entrance).where(
+            Entrance.entrance_id == entrance_id,
+            Entrance.cave_id == cave_id
+        )
+    )
+    entrance = result.scalar_one_or_none()
+
+    if entrance is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entrance not found")
+
+    await session.delete(entrance)
+    await session.commit()
 
 
 # --- List caves endpoint ---
@@ -355,6 +485,35 @@ async def update_cave(
     }
 
     return cave_dict
+
+
+# --- Delete cave endpoint ---
+# Protected - requires authentication and ownership
+@router.delete("/{cave_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_cave(
+    cave_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Delete a cave and all its entrances. Only the owner can delete their caves."""
+
+    # Get the cave and check ownership
+    result = await session.execute(
+        select(Cave).where(Cave.cave_id == cave_id)
+    )
+    cave = result.scalar_one_or_none()
+    if cave is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    if cave.owner_email != user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete caves that you own"
+        )
+
+    # Delete the cave (entrances will be cascade deleted due to relationship)
+    await session.delete(cave)
+    await session.commit()
 
 
 # --- Get user statistics endpoint ---

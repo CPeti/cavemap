@@ -12,6 +12,8 @@ import {
     PencilIcon,
     CheckIcon,
     XMarkIcon,
+    PlusIcon,
+    TrashIcon,
 } from "@heroicons/react/24/outline";
 import { getApiUrl, getOAuthUrl } from "../config";
 
@@ -59,6 +61,18 @@ export default function CaveDetail() {
         horizontal_extent: "",
     });
     const [saving, setSaving] = useState(false);
+
+    // Entrance editing state
+    const [showAddEntranceModal, setShowAddEntranceModal] = useState(false);
+    const [showEditEntranceModal, setShowEditEntranceModal] = useState(false);
+    const [selectedEntrance, setSelectedEntrance] = useState(null);
+    const [entranceForm, setEntranceForm] = useState({
+        name: "",
+        gps_n: "",
+        gps_e: "",
+        asl_m: "",
+    });
+    const [savingEntrance, setSavingEntrance] = useState(false);
 
     useEffect(() => {
         async function fetchCave() {
@@ -226,6 +240,180 @@ export default function CaveDetail() {
         }
     }
 
+    // Entrance management functions
+    const handleAddEntrance = () => {
+        setEntranceForm({
+            name: "",
+            gps_n: "",
+            gps_e: "",
+            asl_m: "",
+        });
+        setShowAddEntranceModal(true);
+    };
+
+    const handleEditEntrance = (entrance) => {
+        setSelectedEntrance(entrance);
+        setEntranceForm({
+            name: entrance.name || "",
+            gps_n: entrance.gps_n || "",
+            gps_e: entrance.gps_e || "",
+            asl_m: entrance.asl_m || "",
+        });
+        setShowEditEntranceModal(true);
+    };
+
+    const handleDeleteEntrance = async (entrance) => {
+        if (!confirm(`Are you sure you want to delete the entrance "${entrance.name || `Entrance ${entrance.entrance_id}`}"?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(getApiUrl(`/caves/${caveId}/entrances/${entrance.entrance_id}`), {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (response.status === 401) {
+                window.location.href = getOAuthUrl("/sign_in") + "?rd=" + encodeURIComponent(window.location.href);
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error("Failed to delete entrance");
+            }
+
+            // Refresh cave data
+            const caveResponse = await fetch(getApiUrl(`/caves/${caveId}`), {
+                credentials: "include",
+            });
+
+            if (caveResponse.ok) {
+                const updatedCave = await caveResponse.json();
+                setCave(updatedCave);
+            }
+        } catch (err) {
+            console.error("Error deleting entrance:", err);
+            alert("Failed to delete entrance: " + err.message);
+        }
+    };
+
+    const handleDeleteCave = async () => {
+        const confirmed = confirm(
+            `Are you sure you want to delete "${cave.name}"?\n\nThis action cannot be undone and will also delete all ${entrances.length} entrance(s) associated with this cave.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch(getApiUrl(`/caves/${caveId}`), {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (response.status === 401) {
+                window.location.href = getOAuthUrl("/sign_in") + "?rd=" + encodeURIComponent(window.location.href);
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            // Redirect to caves list after successful deletion
+            navigate("/caves");
+        } catch (err) {
+            console.error("Error deleting cave:", err);
+            alert("Failed to delete cave: " + err.message);
+        }
+    };
+
+    const handleEntranceSubmit = async (e, isEditing = false) => {
+        e.preventDefault();
+
+        // Validation
+        if (!entranceForm.gps_n || !entranceForm.gps_e) {
+            alert("Latitude and longitude are required");
+            return;
+        }
+
+        const gpsN = parseFloat(entranceForm.gps_n);
+        const gpsE = parseFloat(entranceForm.gps_e);
+
+        if (isNaN(gpsN) || gpsN < -90 || gpsN > 90) {
+            alert("Invalid latitude (must be between -90 and 90)");
+            return;
+        }
+
+        if (isNaN(gpsE) || gpsE < -180 || gpsE > 180) {
+            alert("Invalid longitude (must be between -180 and 180)");
+            return;
+        }
+
+        setSavingEntrance(true);
+
+        try {
+            const payload = {
+                name: entranceForm.name.trim() || null,
+                gps_n: gpsN,
+                gps_e: gpsE,
+                asl_m: entranceForm.asl_m ? parseFloat(entranceForm.asl_m) : null,
+            };
+
+            let response;
+            if (isEditing) {
+                // Update existing entrance
+                response = await fetch(getApiUrl(`/caves/${caveId}/entrances/${selectedEntrance.entrance_id}`), {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                    body: JSON.stringify(payload),
+                });
+            } else {
+                // Create new entrance
+                response = await fetch(getApiUrl(`/caves/${caveId}/entrances`), {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                    body: JSON.stringify(payload),
+                });
+            }
+
+            if (response.status === 401) {
+                window.location.href = getOAuthUrl("/sign_in") + "?rd=" + encodeURIComponent(window.location.href);
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            // Refresh cave data
+            const caveResponse = await fetch(getApiUrl(`/caves/${caveId}`), {
+                credentials: "include",
+            });
+
+            if (caveResponse.ok) {
+                const updatedCave = await caveResponse.json();
+                setCave(updatedCave);
+            }
+
+            setShowAddEntranceModal(false);
+            setShowEditEntranceModal(false);
+            setSelectedEntrance(null);
+        } catch (err) {
+            console.error("Error saving entrance:", err);
+            alert("Failed to save entrance: " + err.message);
+        } finally {
+            setSavingEntrance(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 pt-16">
             {/* Header */}
@@ -265,16 +453,16 @@ export default function CaveDetail() {
                         </div>
 
                         <div className="flex gap-3">
-                            {primaryEntrance && (
-                                <Link
-                                    to="/map"
-                                    state={{ center: [primaryEntrance.gps_e, primaryEntrance.gps_n], zoom: 15 }}
-                                    className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors text-sm font-medium"
-                                >
-                                    <MapIcon className="w-4 h-4" />
-                                    View on Map
-                                </Link>
-                            )}
+                        {primaryEntrance && (
+                            <Link
+                                to="/map"
+                                state={{ center: [primaryEntrance.gps_e, primaryEntrance.gps_n], zoom: 15 }}
+                                className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors text-sm font-medium"
+                            >
+                                <MapIcon className="w-4 h-4" />
+                                View on Map
+                            </Link>
+                        )}
                             {canEdit && (
                                 <button
                                     onClick={() => setShowEditModal(true)}
@@ -351,6 +539,15 @@ export default function CaveDetail() {
                                 <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
                                     {entrances.length}
                                 </span>
+                                {canEdit && (
+                                    <button
+                                        onClick={handleAddEntrance}
+                                        className="ml-2 inline-flex items-center gap-1 text-xs bg-teal-500 text-white px-2 py-1 rounded hover:bg-teal-400 transition-colors"
+                                    >
+                                        <PlusIcon className="w-3 h-3" />
+                                        Add
+                                    </button>
+                                )}
                             </h2>
 
                             {entrances.length > 0 ? (
@@ -364,13 +561,31 @@ export default function CaveDetail() {
                                                 <span className="text-sm font-medium text-white">
                                                     {entrance.name || `Entrance ${index + 1}`}
                                                 </span>
-                                                <Link
-                                                    to="/map"
-                                                    state={{ center: [entrance.gps_e, entrance.gps_n], zoom: 17 }}
-                                                    className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
-                                                >
-                                                    View on map →
-                                                </Link>
+                                                <div className="flex items-center gap-2">
+                                                    {canEdit && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleEditEntrance(entrance)}
+                                                                className="text-xs text-slate-400 hover:text-teal-400 transition-colors"
+                                                            >
+                                                                <PencilIcon className="w-3 h-3" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteEntrance(entrance)}
+                                                                className="text-xs text-slate-400 hover:text-red-400 transition-colors"
+                                                            >
+                                                                <TrashIcon className="w-3 h-3" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    <Link
+                                                        to="/map"
+                                                        state={{ center: [entrance.gps_e, entrance.gps_n], zoom: 17 }}
+                                                        className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                                                    >
+                                                        View on map →
+                                                    </Link>
+                                                </div>
                                             </div>
                                             <div className="grid grid-cols-3 gap-4">
                                                 <div>
@@ -445,6 +660,15 @@ export default function CaveDetail() {
                                     <GlobeAltIcon className="w-4 h-4 text-slate-400" />
                                     Open in Google Maps
                                 </a>
+                                {canEdit && (
+                                    <button
+                                        onClick={handleDeleteCave}
+                                        className="flex items-center gap-3 w-full px-4 py-3 bg-red-900/50 border border-red-700/50 rounded-lg text-sm text-red-300 hover:bg-red-900 hover:text-white transition-colors"
+                                    >
+                                        <TrashIcon className="w-4 h-4 text-red-400" />
+                                        Delete Cave
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -624,6 +848,200 @@ export default function CaveDetail() {
                                 <button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
+                                    className="flex-1 bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Entrance Modal */}
+            {showAddEntranceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAddEntranceModal(false)} />
+
+                    <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-white">Add Entrance</h2>
+                            <button
+                                onClick={() => setShowAddEntranceModal(false)}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={(e) => handleEntranceSubmit(e, false)} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Entrance Name (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={entranceForm.name}
+                                    onChange={(e) => setEntranceForm(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="e.g., Main Entrance"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Latitude *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={entranceForm.gps_n}
+                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_n: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="e.g., 45.123456"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Longitude *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={entranceForm.gps_e}
+                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_e: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="e.g., 14.567890"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Altitude (m)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={entranceForm.asl_m}
+                                    onChange={(e) => setEntranceForm(prev => ({ ...prev, asl_m: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="e.g., 1200"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="submit"
+                                    disabled={savingEntrance}
+                                    className="flex-1 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                >
+                                    {savingEntrance ? "Adding..." : "Add Entrance"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddEntranceModal(false)}
+                                    className="flex-1 bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Entrance Modal */}
+            {showEditEntranceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowEditEntranceModal(false)} />
+
+                    <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-white">Edit Entrance</h2>
+                            <button
+                                onClick={() => setShowEditEntranceModal(false)}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={(e) => handleEntranceSubmit(e, true)} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Entrance Name (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={entranceForm.name}
+                                    onChange={(e) => setEntranceForm(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="e.g., Main Entrance"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Latitude *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={entranceForm.gps_n}
+                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_n: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="e.g., 45.123456"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        Longitude *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={entranceForm.gps_e}
+                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_e: e.target.value }))}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        placeholder="e.g., 14.567890"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Altitude (m)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={entranceForm.asl_m}
+                                    onChange={(e) => setEntranceForm(prev => ({ ...prev, asl_m: e.target.value }))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="e.g., 1200"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="submit"
+                                    disabled={savingEntrance}
+                                    className="flex-1 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                >
+                                    {savingEntrance ? "Saving..." : "Save Changes"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditEntranceModal(false)}
                                     className="flex-1 bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors font-medium"
                                 >
                                     Cancel

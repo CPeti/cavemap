@@ -18,7 +18,7 @@ class Cave(Base):
     horizontal_extent: Mapped[Optional[float]] = mapped_column(Float)
     owner_email = Column(String, nullable=False)  # User who uploaded the cave
 
-    entrances = relationship("Entrance", back_populates="cave")
+    entrances = relationship("Entrance", back_populates="cave", cascade="all, delete-orphan")
 
 
 class Entrance(Base):
