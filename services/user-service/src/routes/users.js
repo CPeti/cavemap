@@ -114,6 +114,7 @@ router.put('/me', authenticateToken, async (req, res) => {
 
 // POST /users/lookup - Get usernames by emails
 router.post('/lookup', async (req, res) => {
+  console.log('lookup request:', req.body);
   try {
     const { emails } = req.body;
     

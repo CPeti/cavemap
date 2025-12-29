@@ -17,7 +17,7 @@ import os
 router = APIRouter()
 
 # User service URL
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:3002")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service.default.svc.cluster.local")
 
 
 # --- Health check endpoint (for K8s probes) ---

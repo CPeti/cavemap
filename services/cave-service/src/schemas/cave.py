@@ -35,7 +35,8 @@ class CaveCreate(CaveBase):
 
 class CaveRead(CaveBase):
     cave_id: int
-    owner_email: str
+    owner_username: str
+    is_owner: bool
     entrances: List[EntranceRead] = []
 
     class Config:
