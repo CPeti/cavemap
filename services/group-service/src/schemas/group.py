@@ -180,6 +180,18 @@ class CaveAssignmentRead(BaseModel):
         from_attributes = True
 
 
+class CaveGroupInfo(BaseModel):
+    """Information about a group that a cave is assigned to."""
+    group_id: int
+    group_name: str
+    group_description: Optional[str] = None
+    assigned_at: datetime
+    assigned_by: str
+
+    class Config:
+        from_attributes = True
+
+
 # ============ Application Schemas ============
 
 class ApplicationCreate(BaseModel):

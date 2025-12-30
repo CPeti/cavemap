@@ -1,7 +1,7 @@
 from src.models.group import Group, GroupCave
-from src.schemas.group import CaveAssign, CaveAssignmentRead
+from src.schemas.group import CaveAssign, CaveAssignmentRead, CaveGroupInfo
 from src.auth import User, require_auth
-from src.routes.groups import get_group_or_404, get_user_membership, require_group_admin
+from src.routes.groups import get_group_or_404, get_user_membership, require_group_admin, fetch_usernames
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -173,48 +173,42 @@ async def list_group_caves(
     return result_with_names
 
 
-# --- Get group for a cave ---
-@router.get("/caves/{cave_id}/group", response_model=CaveAssignmentRead)
-async def get_cave_group(
+# --- Get groups for a cave ---
+@router.get("/caves/{cave_id}/groups", response_model=list[CaveGroupInfo])
+async def get_cave_groups(
     cave_id: int,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_auth)
 ):
-    """Get the group that manages a specific cave."""
+    """Get all groups that a cave is assigned to."""
+    # Query all group assignments for this cave
     result = await session.execute(
-        select(GroupCave).where(GroupCave.cave_id == cave_id)
+        select(GroupCave, Group)
+        .join(Group, GroupCave.group_id == Group.group_id)
+        .where(GroupCave.cave_id == cave_id, Group.is_active == True)
+        .order_by(GroupCave.assigned_at.desc())
     )
-    assignment = result.scalar_one_or_none()
+    assignments = result.all()
     
-    if not assignment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cave is not assigned to any group"
-        )
+    if not assignments:
+        return []  # Return empty list instead of 404
 
-    # Get cave name from cave service
-    cave_name = f"Cave #{cave_id}"
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{CAVE_SERVICE_URL}/caves/{cave_id}",
-                headers={"X-Service-Token": SERVICE_TOKEN}
-            )
-            print(response)
-            if response.status_code == 200:
-                cave_data = response.json()
-                cave_name = cave_data['name']
-    except Exception as e:
-        print(f"Error fetching cave name for {cave_id}: {e}")
+    # Fetch usernames for all assigned_by emails
+    emails = [gc.assigned_by for gc, _ in assignments]
+    usernames_map = await fetch_usernames(emails)
 
-    return CaveAssignmentRead(
-        id=assignment.id,
-        group_id=assignment.group_id,
-        cave_id=assignment.cave_id,
-        cave_name=cave_name,
-        assigned_at=assignment.assigned_at,
-        assigned_by=assignment.assigned_by
-    )
+    # Build response with group info
+    groups_info = []
+    for group_cave, group in assignments:
+        groups_info.append(CaveGroupInfo(
+            group_id=group.group_id,
+            group_name=group.name,
+            group_description=group.description,
+            assigned_at=group_cave.assigned_at,
+            assigned_by=usernames_map.get(group_cave.assigned_by, group_cave.assigned_by.split('@')[0])
+        ))
+    
+    return groups_info
 
 
 # --- Unassign cave from group ---

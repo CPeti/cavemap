@@ -14,6 +14,7 @@ import {
     XMarkIcon,
     PlusIcon,
     TrashIcon,
+    UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { getApiUrl, getOAuthUrl } from "../config";
 
@@ -74,6 +75,15 @@ export default function CaveDetail() {
     });
     const [savingEntrance, setSavingEntrance] = useState(false);
 
+    // Groups state
+    const [caveGroups, setCaveGroups] = useState([]);
+    const [userGroups, setUserGroups] = useState([]);
+    const [showAddGroupModal, setShowAddGroupModal] = useState(false);
+    const [selectedGroupId, setSelectedGroupId] = useState("");
+    const [addingGroup, setAddingGroup] = useState(false);
+
+    const canEdit = cave && cave.is_owner;
+
     useEffect(() => {
         async function fetchCave() {
             try {
@@ -117,6 +127,43 @@ export default function CaveDetail() {
         fetchCave();
     }, [caveId]);
 
+    // Fetch cave groups
+    useEffect(() => {
+        async function fetchCaveGroups() {
+            try {
+                const res = await fetch(getApiUrl(`/groups/caves/${caveId}/groups`), {
+                    credentials: "include",
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setCaveGroups(data);
+                }
+            } catch (err) {
+                console.error("Error fetching cave groups:", err);
+            }
+        }
+        fetchCaveGroups();
+    }, [caveId]);
+
+    // Fetch user's groups (where they are admin/owner) if owner
+    useEffect(() => {
+        async function fetchUserGroups() {
+            if (!cave || !canEdit) return;
+            try {
+                const res = await fetch(getApiUrl("/groups/me"), {
+                    credentials: "include",
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setUserGroups(data);
+                }
+            } catch (err) {
+                console.error("Error fetching user groups:", err);
+            }
+        }
+        fetchUserGroups();
+    }, [cave, canEdit]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
@@ -153,7 +200,6 @@ export default function CaveDetail() {
 
     const entrances = cave.entrances || [];
     const primaryEntrance = entrances[0];
-    const canEdit = cave && cave.is_owner;
 
     async function handleEditSubmit(e) {
         e.preventDefault();
@@ -414,6 +460,69 @@ export default function CaveDetail() {
         }
     };
 
+    const handleAddToGroup = async () => {
+        if (!selectedGroupId) return;
+        setAddingGroup(true);
+        try {
+            const response = await fetch(getApiUrl(`/groups/${selectedGroupId}/caves`), {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cave_id: parseInt(caveId) }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || "Failed to add cave to group");
+            }
+
+            // Refresh cave groups
+            const res = await fetch(getApiUrl(`/groups/caves/${caveId}/groups`), {
+                credentials: "include",
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCaveGroups(data);
+            }
+
+            setShowAddGroupModal(false);
+            setSelectedGroupId("");
+        } catch (err) {
+            console.error("Error adding cave to group:", err);
+            alert(err.message);
+        } finally {
+            setAddingGroup(false);
+        }
+    };
+
+    const handleRemoveFromGroup = async (groupId, groupName) => {
+        if (!confirm(`Remove this cave from "${groupName}"?`)) return;
+
+        try {
+            const response = await fetch(getApiUrl(`/groups/${groupId}/caves/${caveId}`), {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || "Failed to remove cave from group");
+            }
+
+            // Refresh cave groups
+            const res = await fetch(getApiUrl(`/groups/caves/${caveId}/groups`), {
+                credentials: "include",
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCaveGroups(data);
+            }
+        } catch (err) {
+            console.error("Error removing cave from group:", err);
+            alert(err.message);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 pt-16">
             {/* Header */}
@@ -631,6 +740,60 @@ export default function CaveDetail() {
                                 <InfoItem label="First Surveyed" value={cave.first_surveyed} />
                                 <InfoItem label="Last Surveyed" value={cave.last_surveyed} />
                             </div>
+                        </div>
+
+                        {/* Groups */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                            <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                                <UserGroupIcon className="w-4 h-4 text-teal-400" />
+                                Assigned Groups
+                                <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                                    {caveGroups.length}
+                                </span>
+                                {canEdit && (
+                                    <button
+                                        onClick={() => setShowAddGroupModal(true)}
+                                        className="ml-2 inline-flex items-center gap-1 text-xs bg-teal-500 text-white px-2 py-1 rounded hover:bg-teal-400 transition-colors"
+                                    >
+                                        <PlusIcon className="w-3 h-3" />
+                                        Add
+                                    </button>
+                                )}
+                            </h2>
+
+                            {caveGroups.length > 0 ? (
+                                <div className="space-y-2">
+                                    {caveGroups.map((group) => (
+                                        <div
+                                            key={group.group_id}
+                                            className="flex items-center justify-between p-3 bg-slate-800 border border-slate-700 rounded-lg"
+                                        >
+                                            <div className="flex-1">
+                                                <div className="text-sm font-medium text-white">
+                                                    {group.group_name}
+                                                </div>
+                                                <div className="text-xs text-slate-500">
+                                                    Added by {group.assigned_by} • {new Date(group.assigned_at).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => handleRemoveFromGroup(group.group_id, group.group_name)}
+                                                    className="text-slate-400 hover:text-red-400 transition-colors"
+                                                    title="Remove from group"
+                                                >
+                                                    <XMarkIcon className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-4">
+                                    <UserGroupIcon className="w-6 h-6 text-slate-600 mx-auto mb-2" />
+                                    <p className="text-xs text-slate-500">Not assigned to any groups</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Quick Actions */}
@@ -1048,6 +1211,65 @@ export default function CaveDetail() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add to Group Modal */}
+            {showAddGroupModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAddGroupModal(false)} />
+                    <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-white">Add to Group</h2>
+                            <button
+                                onClick={() => setShowAddGroupModal(false)}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-2">
+                                    Select Group
+                                </label>
+                                <select
+                                    value={selectedGroupId}
+                                    onChange={(e) => setSelectedGroupId(e.target.value)}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                >
+                                    <option value="">Choose a group...</option>
+                                    {userGroups
+                                        .filter(g => !caveGroups.some(cg => cg.group_id === g.group_id))
+                                        .map((group) => (
+                                            <option key={group.group_id} value={group.group_id}>
+                                                {group.name}
+                                            </option>
+                                        ))}
+                                </select>
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Only groups where you are admin/owner are shown
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setShowAddGroupModal(false)}
+                                    className="flex-1 bg-slate-700 text-white font-medium px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAddToGroup}
+                                    disabled={!selectedGroupId || addingGroup}
+                                    className="flex-1 bg-teal-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {addingGroup ? "Adding..." : "Add to Group"}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
