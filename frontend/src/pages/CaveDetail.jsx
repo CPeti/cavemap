@@ -16,6 +16,7 @@ import {
     TrashIcon,
     UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import CoordinateInput from "../components/CoordinateInput";
 import { getApiUrl, getOAuthUrl } from "../config";
 
 const InfoItem = ({ label, value, unit }) => (
@@ -521,6 +522,11 @@ export default function CaveDetail() {
             console.error("Error removing cave from group:", err);
             alert(err.message);
         }
+    };
+
+    const handleCoordinateChange = (type, value) => {
+        const field = type === 'latitude' ? 'gps_n' : 'gps_e';
+        setEntranceForm(prev => ({ ...prev, [field]: value }));
     };
 
     return (
@@ -1051,37 +1057,12 @@ export default function CaveDetail() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-1">
-                                        Latitude *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={entranceForm.gps_n}
-                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_n: e.target.value }))}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                        placeholder="e.g., 45.123456"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-1">
-                                        Longitude *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={entranceForm.gps_e}
-                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_e: e.target.value }))}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                        placeholder="e.g., 14.567890"
-                                        required
-                                    />
-                                </div>
-                            </div>
+                            <CoordinateInput
+                                latitude={entranceForm.gps_n}
+                                longitude={entranceForm.gps_e}
+                                onChange={handleCoordinateChange}
+                                required={true}
+                            />
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-400 mb-1">
@@ -1148,37 +1129,12 @@ export default function CaveDetail() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-1">
-                                        Latitude *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={entranceForm.gps_n}
-                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_n: e.target.value }))}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                        placeholder="e.g., 45.123456"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-1">
-                                        Longitude *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={entranceForm.gps_e}
-                                        onChange={(e) => setEntranceForm(prev => ({ ...prev, gps_e: e.target.value }))}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                        placeholder="e.g., 14.567890"
-                                        required
-                                    />
-                                </div>
-                            </div>
+                            <CoordinateInput
+                                latitude={entranceForm.gps_n}
+                                longitude={entranceForm.gps_e}
+                                onChange={handleCoordinateChange}
+                                required={true}
+                            />
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-400 mb-1">
