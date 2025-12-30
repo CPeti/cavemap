@@ -87,5 +87,15 @@ const requireAdmin = async (req, res, next) => {
 
 module.exports = {
   authenticateToken,
-  requireAdmin
+  requireAdmin,
+  requireInternalService: (req, res, next) => {
+    // Check for internal service authorization header
+    const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+    const authHeader = req.headers['x-internal-token'];
+    
+    if (!internalToken || !authHeader || authHeader !== internalToken) {
+      return res.status(403).json({ error: 'Internal service access only' });
+    }
+    next();
+  }
 };

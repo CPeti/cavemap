@@ -33,7 +33,26 @@ async def list_members(
     result = await session.execute(
         select(GroupMember).where(GroupMember.group_id == group_id).order_by(GroupMember.role, GroupMember.joined_at)
     )
-    return result.scalars().all()
+    members = result.scalars().all()
+
+    # Fetch usernames for all members
+    from src.routes.groups import fetch_usernames
+    member_emails = [m.user_email for m in members]
+    usernames_map = await fetch_usernames(member_emails)
+
+    # Convert to dict format
+    member_list = []
+    for member in members:
+        member_dict = {
+            "member_id": member.member_id,
+            "username": usernames_map.get(member.user_email, member.user_email.split('@')[0]),
+            "role": MemberRole(member.role.value),
+            "joined_at": member.joined_at,
+            "is_current_user": member.user_email == user.email
+        }
+        member_list.append(member_dict)
+
+    return member_list
 
 
 # --- Add member directly (admin function) ---
@@ -71,23 +90,41 @@ async def add_member(
     session.add(new_member)
     await session.commit()
     await session.refresh(new_member)
-    return new_member
+
+    # Fetch username for the new member
+    from src.routes.groups import fetch_usernames
+    usernames_map = await fetch_usernames([new_member.user_email])
+
+    # Return formatted response
+    return {
+        "member_id": new_member.member_id,
+        "username": usernames_map.get(new_member.user_email, new_member.user_email.split('@')[0]),
+        "role": MemberRole(new_member.role.value),
+        "joined_at": new_member.joined_at,
+        "is_current_user": new_member.user_email == user.email
+    }
 
 
 # --- Update member role ---
-@router.patch("/{group_id}/members/{member_email}", response_model=GroupMemberRead)
+@router.patch("/{group_id}/members/{member_id}", response_model=GroupMemberRead)
 async def update_member_role(
     group_id: int,
-    member_email: str,
+    member_id: int,
     update: MemberRoleUpdate,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_auth)
 ):
     """Update a member's role. Requires admin privileges. Owner role requires current owner."""
     await get_group_or_404(session, group_id)
-    
-    # Get target member
-    target_member = await get_user_membership(session, group_id, member_email)
+
+    # Get target member by ID
+    result = await session.execute(
+        select(GroupMember).where(
+            GroupMember.member_id == member_id,
+            GroupMember.group_id == group_id
+        )
+    )
+    target_member = result.scalar_one_or_none()
     if not target_member:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -113,30 +150,49 @@ async def update_member_role(
     target_member.role = DBMemberRole(update.role.value)
     await session.commit()
     await session.refresh(target_member)
-    return target_member
+
+    # Fetch username for the updated member
+    from src.routes.groups import fetch_usernames
+    usernames_map = await fetch_usernames([target_member.user_email])
+
+    # Return formatted response
+    return {
+        "member_id": target_member.member_id,
+        "username": usernames_map.get(target_member.user_email, target_member.user_email.split('@')[0]),
+        "role": MemberRole(target_member.role.value),
+        "joined_at": target_member.joined_at,
+        "is_current_user": target_member.user_email == user.email
+    }
 
 
 # --- Remove member ---
-@router.delete("/{group_id}/members/{member_email}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{group_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_member(
     group_id: int,
-    member_email: str,
+    member_id: int,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_auth)
 ):
     """Remove a member from the group. Requires admin privileges, or user can remove themselves."""
     await get_group_or_404(session, group_id)
-    
-    target_member = await get_user_membership(session, group_id, member_email)
+
+    # Get target member by ID
+    result = await session.execute(
+        select(GroupMember).where(
+            GroupMember.member_id == member_id,
+            GroupMember.group_id == group_id
+        )
+    )
+    target_member = result.scalar_one_or_none()
     if not target_member:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Member not found"
         )
-    
+
     # User can remove themselves (leave group)
-    is_self = member_email == user.email
-    
+    is_self = target_member.user_email == user.email
+
     if not is_self:
         # Need admin privileges to remove others
         await require_group_admin(session, group_id, user.email)

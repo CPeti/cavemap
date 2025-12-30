@@ -69,7 +69,23 @@ async def create_invitation(
     session.add(new_invitation)
     await session.commit()
     await session.refresh(new_invitation)
-    return new_invitation
+
+    # Enrich with usernames for immediate frontend display
+    usernames_map = await fetch_usernames([user.email, invitation.invitee_email])
+
+    return InvitationRead(
+        invitation_id=new_invitation.invitation_id,
+        group_id=new_invitation.group_id,
+        inviter_email=new_invitation.inviter_email,
+        inviter_username=usernames_map.get(new_invitation.inviter_email, new_invitation.inviter_email.split('@')[0]),
+        invitee_email=new_invitation.invitee_email,
+        invitee_username=usernames_map.get(new_invitation.invitee_email, new_invitation.invitee_email.split('@')[0]),
+        role=MemberRole(new_invitation.role.value),
+        status=new_invitation.status.value,
+        created_at=new_invitation.created_at,
+        expires_at=new_invitation.expires_at,
+        responded_at=new_invitation.responded_at
+    )
 
 
 # --- List group's invitations (for admins) ---

@@ -39,7 +39,6 @@ export default function GroupDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentUserRole, setCurrentUserRole] = useState(null);
-    const [currentUserEmail, setCurrentUserEmail] = useState(null);
     const [currentUsername, setCurrentUsername] = useState(null);
     const [caveNames, setCaveNames] = useState({}); // Map of cave_id -> cave_name
 
@@ -99,11 +98,10 @@ export default function GroupDetail() {
         setLoading(true);
         setError(null);
         try {
-            // Fetch user info first to get email and username
+            // Fetch user info first to get username
             const userRes = await fetch(getApiUrl("/users/me"), { credentials: "include" });
             if (userRes.ok) {
                 const userData = await userRes.json();
-                setCurrentUserEmail(userData.email);
                 setCurrentUsername(userData.username);
             }
 
@@ -141,7 +139,7 @@ export default function GroupDetail() {
             const userRes2 = await fetch(getApiUrl("/users/me"), { credentials: "include" });
             if (userRes2.ok) {
                 const userData = await userRes2.json();
-                const membership = data.members.find((m) => m.user_email === userData.email);
+                const membership = data.members.find((m) => m.username === userData.username);
                 setCurrentUserRole(membership?.role || null);
             }
 
@@ -280,11 +278,11 @@ export default function GroupDetail() {
         }
     };
 
-    const handleRemoveMember = async (memberEmail) => {
-        if (!confirm(`Remove ${memberEmail} from the group?`)) return;
+    const handleRemoveMember = async (memberId, memberUsername) => {
+        if (!confirm(`Remove ${memberUsername} from the group?`)) return;
 
         try {
-            const response = await fetch(getApiUrl(`/groups/${groupId}/members/${encodeURIComponent(memberEmail)}`), {
+            const response = await fetch(getApiUrl(`/groups/${groupId}/members/${memberId}`), {
                 method: "DELETE",
                 credentials: "include",
             });
@@ -301,9 +299,9 @@ export default function GroupDetail() {
         }
     };
 
-    const handleUpdateRole = async (memberEmail, newRole) => {
+    const handleUpdateRole = async (memberId, newRole, memberUsername) => {
         try {
-            const response = await fetch(getApiUrl(`/groups/${groupId}/members/${encodeURIComponent(memberEmail)}`), {
+            const response = await fetch(getApiUrl(`/groups/${groupId}/members/${memberId}`), {
                 method: "PATCH",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
@@ -315,7 +313,13 @@ export default function GroupDetail() {
                 throw new Error(err.detail || "Failed to update role");
             }
 
-            fetchGroup();
+            // Update member role in state locally instead of refetching
+            setGroup((prevGroup) => ({
+                ...prevGroup,
+                members: prevGroup.members.map((member) =>
+                    member.member_id === memberId ? { ...member, role: newRole } : member
+                ),
+            }));
         } catch (err) {
             console.error("Error updating role:", err);
             setError(err.message);
@@ -510,14 +514,14 @@ export default function GroupDetail() {
                                                     <ShieldCheckIcon className="w-4 h-4 text-teal-400" />
                                                 ) : (
                                                     <span className="text-slate-400 text-sm font-medium">
-                                                        {(member.username || member.user_email)[0].toUpperCase()}
+                                                        {member.username[0].toUpperCase()}
                                                     </span>
                                                 )}
                                             </div>
                                             <div>
                                                 <p className="text-white text-sm font-medium">
-                                                    {member.username || member.user_email}
-                                                    {member.user_email === currentUserEmail && (
+                                                    {member.username}
+                                                    {member.username === currentUsername && (
                                                         <span className="text-slate-500 ml-1">(you)</span>
                                                     )}
                                                 </p>
@@ -529,11 +533,11 @@ export default function GroupDetail() {
                                             </div>
                                         </div>
 
-                                        {isAdmin && member.role !== "owner" && member.user_email !== currentUserEmail && (
+                                        {isAdmin && member.role !== "owner" && member.username !== currentUsername && (
                                             <div className="flex items-center gap-2">
                                                 <select
                                                     value={member.role}
-                                                    onChange={(e) => handleUpdateRole(member.user_email, e.target.value)}
+                                                    onChange={(e) => handleUpdateRole(member.member_id, e.target.value, member.username)}
                                                     className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white"
                                                 >
                                                     <option value="member">Member</option>
@@ -541,7 +545,7 @@ export default function GroupDetail() {
                                                     {isOwner && <option value="owner">Owner</option>}
                                                 </select>
                                                 <button
-                                                    onClick={() => handleRemoveMember(member.user_email)}
+                                                    onClick={() => handleRemoveMember(member.member_id, member.username)}
                                                     className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
                                                     title="Remove member"
                                                 >
@@ -566,9 +570,9 @@ export default function GroupDetail() {
                                                 className="flex items-center justify-between p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg"
                                             >
                                                 <div>
-                                                    <p className="text-white text-sm">{inv.invitee_username || inv.invitee_email}</p>
+                                                    <p className="text-white text-sm">{inv.invitee_username}</p>
                                                     <p className="text-slate-500 text-xs">
-                                                        Invited as {inv.role} by {inv.inviter_username || inv.inviter_email}
+                                                        Invited as {inv.role} by {inv.inviter_username}
                                                     </p>
                                                 </div>
                                                 <button
@@ -597,7 +601,7 @@ export default function GroupDetail() {
                                                 className="flex items-center justify-between p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg"
                                             >
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-white text-sm">{app.applicant_username || app.applicant_email}</p>
+                                                    <p className="text-white text-sm">{app.applicant_username}</p>
                                                     {app.message && (
                                                         <p className="text-slate-400 text-xs mt-0.5 truncate">"{app.message}"</p>
                                                     )}

@@ -1,4 +1,4 @@
-from src.models.group import Group, GroupMember, GroupApplication, MemberRole as DBMemberRole, JoinPolicy as DBJoinPolicy, ApplicationStatus as DBApplicationStatus
+from src.models.group import Group, GroupMember, GroupApplication, GroupInvitation, MemberRole as DBMemberRole, JoinPolicy as DBJoinPolicy, ApplicationStatus as DBApplicationStatus
 from src.schemas.group import (
     GroupCreate, GroupRead, GroupUpdate, GroupSummary, GroupPublic,
     MemberRole, JoinPolicy
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func
+from sqlalchemy import func, delete
 from src.db.connection import get_session
 import httpx
 import os
@@ -72,7 +72,6 @@ async def get_user_membership(session: AsyncSession, group_id: int, user_email: 
     )
     return result.scalar_one_or_none()
 
-
 async def require_group_admin(session: AsyncSession, group_id: int, user_email: str) -> GroupMember:
     """Require user to be admin or owner of the group."""
     membership = await get_user_membership(session, group_id, user_email)
@@ -122,7 +121,34 @@ async def create_group(
 
     await session.commit()
     await session.refresh(new_group, ["members", "caves"])
-    return new_group
+    
+    # Enrich with usernames from user-service
+    emails = [m.user_email for m in new_group.members]
+    usernames_map = await fetch_usernames(emails)
+    
+    # Convert to dict and add usernames
+    group_dict = {
+        "group_id": new_group.group_id,
+        "name": new_group.name,
+        "description": new_group.description,
+        "join_policy": JoinPolicy(new_group.join_policy.value),
+        "created_at": new_group.created_at,
+        "updated_at": new_group.updated_at,
+        "is_active": new_group.is_active,
+        "members": [
+            {
+                "member_id": m.member_id,
+                "user_email": m.user_email,
+                "username": usernames_map.get(m.user_email, m.user_email.split('@')[0]),
+                "role": MemberRole(m.role.value),
+                "joined_at": m.joined_at
+            }
+            for m in new_group.members
+        ],
+        "caves": []
+    }
+    
+    return group_dict
 
 
 # --- List user's groups ---
@@ -296,7 +322,7 @@ async def get_group(
                 "id": c.id,
                 "cave_id": c.cave_id,
                 "assigned_at": c.assigned_at,
-                "assigned_by": c.assigned_by
+                "assigned_by": usernames_map.get(c.assigned_by, c.assigned_by.split('@')[0])
             }
             for c in group.caves
         ]
@@ -326,7 +352,42 @@ async def update_group(
     
     await session.commit()
     await session.refresh(group, ["members", "caves"])
-    return group
+    
+    # Enrich with usernames from user-service
+    emails = [m.user_email for m in group.members]
+    usernames_map = await fetch_usernames(emails)
+    
+    # Convert to dict and add usernames
+    group_dict = {
+        "group_id": group.group_id,
+        "name": group.name,
+        "description": group.description,
+        "join_policy": JoinPolicy(group.join_policy.value),
+        "created_at": group.created_at,
+        "updated_at": group.updated_at,
+        "is_active": group.is_active,
+        "members": [
+            {
+                "member_id": m.member_id,
+                "user_email": m.user_email,
+                "username": usernames_map.get(m.user_email, m.user_email.split('@')[0]),
+                "role": MemberRole(m.role.value),
+                "joined_at": m.joined_at
+            }
+            for m in group.members
+        ],
+        "caves": [
+            {
+                "id": c.id,
+                "cave_id": c.cave_id,
+                "assigned_at": c.assigned_at,
+                "assigned_by": usernames_map.get(c.assigned_by, c.assigned_by.split('@')[0])
+            }
+            for c in group.caves
+        ]
+    }
+    
+    return group_dict
 
 
 # --- Delete group ---
@@ -341,5 +402,11 @@ async def delete_group(
     await require_group_owner(session, group_id, user.email)
     
     group.is_active = False
+
+    # Remove any invitations tied to this group so they don't linger after deletion
+    await session.execute(
+        delete(GroupInvitation).where(GroupInvitation.group_id == group_id)
+    )
+
     await session.commit()
 

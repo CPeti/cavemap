@@ -53,10 +53,10 @@ class GroupUpdate(BaseModel):
 
 class GroupMemberRead(BaseModel):
     member_id: int
-    user_email: str
-    username: Optional[str] = None  # Username to display instead of email
+    username: str  # Username to display instead of email
     role: MemberRole
     joined_at: datetime
+    is_current_user: bool = False
 
     class Config:
         from_attributes = True
