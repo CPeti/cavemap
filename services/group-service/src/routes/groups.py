@@ -19,6 +19,9 @@ router = APIRouter()
 # User service URL
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service.default.svc.cluster.local")
 
+# Service authentication token for internal service-to-service communication
+SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
+
 
 # --- Health check endpoint (for K8s probes) ---
 @router.get("/health")
@@ -37,6 +40,7 @@ async def fetch_usernames(emails: list[str]) -> dict[str, str]:
             response = await client.post(
                 f"{USER_SERVICE_URL}/users/lookup",
                 json={"emails": emails},
+                headers={"X-Service-Token": SERVICE_TOKEN},
                 timeout=5.0
             )
             if response.status_code == 200:

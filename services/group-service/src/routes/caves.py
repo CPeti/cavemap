@@ -13,7 +13,11 @@ import httpx
 router = APIRouter()
 
 # Cave service base URL (env var with sensible default)
-CAVE_SERVICE_URL = os.getenv("CAVE_SERVICE_URL", "http://cave-service.default.svc.cluster.local:8000")
+CAVE_SERVICE_URL = os.getenv("CAVE_SERVICE_URL", "http://cave-service.default.svc.cluster.local")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service.default.svc.cluster.local")
+
+# Service authentication token for internal service-to-service communication
+SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
 
 
 # --- Assign cave to group ---
@@ -67,13 +71,29 @@ async def assign_cave(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{CAVE_SERVICE_URL}/caves/{cave.cave_id}"
+                f"{CAVE_SERVICE_URL}/caves/{cave.cave_id}",
+                headers={"X-Service-Token": SERVICE_TOKEN}
             )
             if response.status_code == 200:
                 cave_data = response.json()
-                cave_name = cave_data.name
+                cave_name = cave_data['name']
     except Exception as e:
         print(f"Error fetching cave name for {cave.cave_id}: {e}")
+        
+    
+    # fetch username for assigned_by
+    username = new_assignment.assigned_by
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{USER_SERVICE_URL}/users/lookup/{new_assignment.assigned_by}",
+                headers={"X-Service-Token": SERVICE_TOKEN}
+            )
+            if response.status_code == 200:
+                user_data = response.json()
+                username = user_data['username']
+    except Exception as e:
+        print(f"Error fetching username for {new_assignment.assigned_by}: {e}")
 
     return CaveAssignmentRead(
         id=new_assignment.id,
@@ -81,7 +101,7 @@ async def assign_cave(
         cave_id=new_assignment.cave_id,
         cave_name=cave_name,
         assigned_at=new_assignment.assigned_at,
-        assigned_by=new_assignment.assigned_by
+        assigned_by=username
     )
 
 
@@ -121,11 +141,12 @@ async def list_group_caves(
                 for cave_id in cave_ids:
                     try:
                         response = await client.get(
-                            f"{CAVE_SERVICE_URL}/caves/{cave_id}"
+                            f"{CAVE_SERVICE_URL}/caves/{cave_id}",
+                            headers={"X-Service-Token": SERVICE_TOKEN}
                         )
                         if response.status_code == 200:
                             cave_data = response.json()
-                            cave_names[cave_id] = cave_data.name
+                            cave_names[cave_id] = cave_data['name']
                         else:
                             cave_names[cave_id] = f"Cave #{cave_id}"
                     except Exception as e:
@@ -176,11 +197,13 @@ async def get_cave_group(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{CAVE_SERVICE_URL}/caves/{cave_id}"
+                f"{CAVE_SERVICE_URL}/caves/{cave_id}",
+                headers={"X-Service-Token": SERVICE_TOKEN}
             )
+            print(response)
             if response.status_code == 200:
                 cave_data = response.json()
-                cave_name = cave_data.name
+                cave_name = cave_data['name']
     except Exception as e:
         print(f"Error fetching cave name for {cave_id}: {e}")
 

@@ -8,9 +8,13 @@ with the user's cookies. This allows per-endpoint auth control.
 from fastapi import Request, HTTPException, status
 from typing import Optional
 import httpx
+import os
 
 # OAuth2 proxy internal service URL (within the cluster)
 OAUTH2_PROXY_AUTH_URL = "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
+
+# Service authentication token for internal service-to-service communication
+SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
 
 
 class User:
@@ -26,9 +30,15 @@ class User:
 
 async def verify_auth(request: Request) -> Optional[User]:
     """
-    Verify authentication by calling OAuth2 proxy.
+    Verify authentication by checking service token or calling OAuth2 proxy.
     Returns User if authenticated, None otherwise.
     """
+    # Check for service token first (internal service communication)
+    service_token = request.headers.get("X-Service-Token")
+    if service_token and service_token == SERVICE_TOKEN:
+        # Service-to-service call - create a service user
+        return User(email="service@cavemap.internal", user="service")
+
     # Get cookies from the request to forward to OAuth2 proxy
     cookies = request.headers.get("cookie", "")
     if not cookies:

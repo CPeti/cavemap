@@ -37,6 +37,11 @@ spec:
               value: {{ .Values.userService.containerPort | quote }}
             - name: MONGODB_URI
               value: "mongodb://{{ .Values.mongodb.user }}:{{ .Values.mongodb.password }}@{{ .Values.mongodb.name }}.{{ .Values.namespace }}.svc.cluster.local:27017/{{ .Values.mongodb.database }}?authSource=admin"
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-secret
+                  key: service-token
           livenessProbe:
             httpGet:
               path: /health
