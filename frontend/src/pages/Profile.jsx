@@ -32,6 +32,7 @@ export default function Profile() {
         avatar: ''
     });
     const [hasChanges, setHasChanges] = useState(false);
+    const [showUsernameErrorModal, setShowUsernameErrorModal] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -94,7 +95,20 @@ export default function Profile() {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `HTTP ${response.status}: Failed to update profile`);
+                const rawMessage = errorData.error || "";
+                const lowerMessage = rawMessage.toLowerCase();
+                let friendlyMessage = rawMessage || `HTTP ${response.status}: Failed to update profile`;
+
+                // Detect duplicate/unique username constraint errors
+                if (response.status === 400 || response.status === 409) {
+                    if (lowerMessage.includes("duplicate") || lowerMessage.includes("unique") || lowerMessage.includes("username") || lowerMessage.includes("taken")) {
+                        // Show popup modal for username error
+                        setShowUsernameErrorModal(true);
+                        return; // Don't throw error, just show modal
+                    }
+                }
+
+                throw new Error(friendlyMessage);
             }
 
             const updatedProfile = await response.json();
@@ -671,6 +685,51 @@ export default function Profile() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Username Taken Modal */}
+            {showUsernameErrorModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div 
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+                        onClick={() => setShowUsernameErrorModal(false)}
+                    />
+                    <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
+                        <button
+                            onClick={() => setShowUsernameErrorModal(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-amber-500/10 rounded-lg">
+                                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3l-6.928-12c-.77-1.333-2.694-1.333-3.464 0L3.732 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <h2 className="text-lg font-medium text-white">Username Already Taken</h2>
+                        </div>
+
+                        <div className="mb-6">
+                            <p className="text-slate-300 text-sm mb-4">
+                                The username <span className="font-semibold text-white">"{editForm.username}"</span> is already in use by another user.
+                            </p>
+                            <p className="text-slate-400 text-sm">
+                                Please choose a different username and try again.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => setShowUsernameErrorModal(false)}
+                            className="w-full bg-teal-500 text-white font-medium px-4 py-2.5 rounded-lg hover:bg-teal-400 transition-colors"
+                        >
+                            Got it
+                        </button>
                     </div>
                 </div>
             )}

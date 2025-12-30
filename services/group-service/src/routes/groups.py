@@ -102,6 +102,16 @@ async def create_group(
     user: User = Depends(require_auth)
 ):
     """Create a new expedition group. The creator becomes the owner."""
+    # Enforce unique group name (case-insensitive) among active groups
+    existing = await session.execute(
+        select(Group).where(func.lower(Group.name) == group.name.lower(), Group.is_active == True)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A group with this name already exists"
+        )
+
     # Create the group
     new_group = Group(
         name=group.name,
@@ -343,6 +353,21 @@ async def update_group(
     group = await get_group_or_404(session, group_id)
     await require_group_admin(session, group_id, user.email)
     
+    # If name is changing, enforce uniqueness (case-insensitive) among active groups
+    if update.name is not None and update.name.lower() != group.name.lower():
+        existing = await session.execute(
+            select(Group).where(
+                func.lower(Group.name) == update.name.lower(),
+                Group.is_active == True,
+                Group.group_id != group_id
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A group with this name already exists"
+            )
+
     if update.name is not None:
         group.name = update.name
     if update.description is not None:

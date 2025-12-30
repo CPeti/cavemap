@@ -108,6 +108,10 @@ router.put('/me', authenticateToken, async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({ error: error.message });
     }
+    // Handle MongoDB duplicate key error (E11000)
+    if (error.code === 11000 && error.keyPattern?.username) {
+      return res.status(409).json({ error: 'That username is already taken. Please choose another.' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -135,33 +139,6 @@ router.post('/lookup', async (req, res) => {
     res.json(emailToUsername);
   } catch (error) {
     console.error('Error looking up users:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST /users/email-lookup - INTERNAL ONLY - Get email by username(s)
-// Only callable from other services with INTERNAL_SERVICE_TOKEN header
-router.post('/email-lookup', async (req, res) => {
-  try {
-    const { usernames } = req.body;
-    
-    if (!usernames || !Array.isArray(usernames)) {
-      return res.status(400).json({ error: 'usernames array is required' });
-    }
-
-    const users = await User.find({ username: { $in: usernames } })
-      .select('username email')
-      .lean();
-
-    // Create a map of username -> email
-    const usernameToEmail = {};
-    users.forEach(user => {
-      usernameToEmail[user.username] = user.email;
-    });
-
-    res.json(usernameToEmail);
-  } catch (error) {
-    console.error('Error looking up email by username:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
