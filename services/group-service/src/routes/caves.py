@@ -240,3 +240,25 @@ async def unassign_cave(
     await session.delete(assignment)
     await session.commit()
 
+
+# --- Delete all assignments for a cave (called by cave service) ---
+@router.delete("/caves/{cave_id}/assignments", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_cave_assignments(
+    cave_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Delete all cave assignments for a specific cave. Requires service authentication."""
+    # This endpoint should only be called by the cave service
+    # In a production system, you'd add additional service authentication checks
+
+    result = await session.execute(
+        select(GroupCave).where(GroupCave.cave_id == cave_id)
+    )
+    assignments = result.scalars().all()
+
+    for assignment in assignments:
+        await session.delete(assignment)
+
+    await session.commit()
+

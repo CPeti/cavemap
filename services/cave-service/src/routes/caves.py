@@ -17,6 +17,12 @@ router = APIRouter()
 # User service URL
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service.default.svc.cluster.local")
 
+# Group service URL
+GROUP_SERVICE_URL = os.getenv("GROUP_SERVICE_URL", "http://group-service.default.svc.cluster.local")
+
+# Service authentication token for internal service-to-service communication
+SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
+
 
 async def fetch_usernames(emails: list[str]) -> dict[str, str]:
     """Fetch usernames from user-service for given emails."""
@@ -349,6 +355,38 @@ async def list_caves(
     return cave_list
 
 
+# --- Delete all caves (TESTING ONLY) ---
+@router.delete("/delete_all", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_caves(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Delete all caves and their entrances. For testing purposes only."""
+    result = await session.execute(select(Cave))
+    caves = result.scalars().all()
+
+    # Get all cave IDs before deleting
+    cave_ids = [cave.cave_id for cave in caves]
+
+    # Notify group service to delete assignments for all caves
+    for cave_id in cave_ids:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"{GROUP_SERVICE_URL}/groups/caves/{cave_id}/assignments",
+                    headers={"X-Service-Token": SERVICE_TOKEN}
+                )
+                if response.status_code not in [200, 204]:
+                    print(f"Warning: Failed to delete cave assignments for cave {cave_id}: {response.status_code}")
+        except Exception as e:
+            print(f"Warning: Error notifying group service about cave {cave_id} deletion: {e}")
+
+    for cave in caves:
+        await session.delete(cave)
+
+    await session.commit()
+
+
 # --- Get single cave endpoint ---
 # Public - no auth required
 @router.get("/{cave_id}", response_model=CaveRead)
@@ -511,6 +549,18 @@ async def delete_cave(
             detail="You can only delete caves that you own"
         )
 
+    # Notify group service to delete cave assignments
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(
+                f"{GROUP_SERVICE_URL}/groups/caves/{cave_id}/assignments",
+                headers={"X-Service-Token": SERVICE_TOKEN}
+            )
+            if response.status_code not in [200, 204]:
+                print(f"Warning: Failed to delete cave assignments from group service: {response.status_code}")
+    except Exception as e:
+        print(f"Warning: Error notifying group service about cave deletion: {e}")
+
     # Delete the cave (entrances will be cascade deleted due to relationship)
     await session.delete(cave)
     await session.commit()
@@ -551,3 +601,47 @@ async def get_user_stats(
         total_length=total_length,
         total_depth=total_depth
     )
+    
+    # --- uUpload list of caves ()TES# --- Upload list of caves (TESTING ONLY) ---# --- Upload list of caves (TESTING ONLY) ---
+@router.post("/bulk_upload", status_code=status.HTTP_201_CREATED)
+async def bulk_upload_caves(
+    caves: list[CaveCreate],
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Bulk upload caves. For testing purposes only."""
+    created_caves = []
+    for cave_data in caves:
+        new_cave = Cave(
+            name=cave_data.name,
+            zone=cave_data.zone,
+            code=cave_data.code,
+            first_surveyed=cave_data.first_surveyed,
+            last_surveyed=cave_data.last_surveyed,
+            length=cave_data.length,
+            depth=cave_data.depth,
+            vertical_extent=cave_data.vertical_extent,
+            horizontal_extent=cave_data.horizontal_extent,
+            owner_email=user.email
+        )
+        session.add(new_cave)
+        await session.flush()  # Get cave_id
+
+        # Add entrances if provided
+        if cave_data.entrances:
+            entrances = [
+                Entrance(
+                    cave_id=new_cave.cave_id,
+                    name=ent.name,
+                    gps_n=ent.gps_n,
+                    gps_e=ent.gps_e,
+                    asl_m=ent.asl_m
+                )
+                for ent in cave_data.entrances
+            ]
+            session.add_all(entrances)
+
+        created_caves.append(new_cave)
+
+    await session.commit()
+    return {"created": len(created_caves)}
