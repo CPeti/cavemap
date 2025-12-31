@@ -16,7 +16,7 @@ export default function Home() {
     const [stats, setStats] = useState({
         totalCaves: 0,
         totalLength: 0,
-        totalVerticalExtent: 0,
+        totalDepth: 0,
         zones: new Set(),
         deepestCave: null,
         longestCave: null,
@@ -47,18 +47,18 @@ export default function Home() {
                 // Calculate statistics
                 const zones = new Set();
                 let totalLength = 0;
-                let totalVerticalExtent = 0;
+                let totalDepth = 0;
                 let deepestCave = null;
                 let longestCave = null;
 
                 caveData.forEach((cave) => {
                     if (cave.zone) zones.add(cave.zone);
                     if (cave.length) totalLength += cave.length;
-                    if (cave.vertical_extent) totalVerticalExtent += cave.vertical_extent;
+                    if (cave.depth) totalDepth += cave.depth;
 
                     if (
-                        cave.vertical_extent &&
-                        (!deepestCave || cave.vertical_extent > deepestCave.vertical_extent)
+                        cave.depth &&
+                        (!deepestCave || cave.depth > deepestCave.depth)
                     ) {
                         deepestCave = cave;
                     }
@@ -76,7 +76,7 @@ export default function Home() {
                 setStats({
                     totalCaves: caveData.length,
                     totalLength,
-                    totalVerticalExtent,
+                    totalDepth,
                     zones,
                     deepestCave,
                     longestCave,
@@ -129,7 +129,7 @@ export default function Home() {
             </div>
             <div className="text-right">
                 <div className="text-xl font-semibold text-white">
-                    {type === "Deepest" ? cave.vertical_extent : cave.length}
+                    {type === "Deepest" ? cave.depth : cave.length}
                     <span className="text-sm text-slate-500 ml-0.5">m</span>
                 </div>
                 {cave.zone && (
@@ -221,7 +221,7 @@ export default function Home() {
                     <StatCard
                         icon={ArrowTrendingDownIcon}
                         label="Total Depth"
-                        value={formatNumber(stats.totalVerticalExtent)}
+                        value={formatNumber(stats.totalDepth)}
                         unit="m"
                         iconColor="text-slate-400"
                     />

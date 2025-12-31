@@ -4,7 +4,7 @@ import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import PropTypes from 'prop-types';
 
 const CaveTable = ({ caves = [] }) => {
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: null })
+    const [sortConfig, setSortConfig] = useState({ key: 'length', direction: 'desc' })
 
     const sortedCaves = [...caves].sort((a, b) => {
         if (!sortConfig.key) return 0
