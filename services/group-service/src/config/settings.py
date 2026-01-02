@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     db_url: Optional[str] = None
+    rabbitmq_url: Optional[str] = None
 
     class Config:
         env_file = ".env"

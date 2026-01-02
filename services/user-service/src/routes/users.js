@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const User = require('../models/User');
 const { authenticateToken, requireAdmin, requireInternalService } = require('../middleware/auth');
+const rabbitMQPublisher = require('../utils/rabbitmq');
 
 const router = express.Router();
 
@@ -208,6 +209,30 @@ router.delete('/me', authenticateToken, async (req, res) => {
     }
 
     console.log('User profile deleted successfully:', deletedUser.email);
+
+    // Publish user deletion event to RabbitMQ
+    try {
+      const message = {
+        event: 'user.deleted',
+        userId: deletedUser._id.toString(),
+        email: deletedUser.email,
+        username: deletedUser.username,
+        deletedAt: new Date().toISOString(),
+        timestamp: Date.now()
+      };
+
+      await rabbitMQPublisher.publishMessage(
+        'user.events',
+        'user.deleted',
+        message
+      );
+
+      console.log('User deletion event published to RabbitMQ');
+    } catch (rabbitError) {
+      console.error('Failed to publish user deletion event to RabbitMQ:', rabbitError);
+      // Don't fail the deletion if RabbitMQ publishing fails
+    }
+
     res.json({ message: 'Profile deleted successfully' });
 
   } catch (error) {

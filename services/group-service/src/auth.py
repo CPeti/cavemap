@@ -93,7 +93,7 @@ async def require_auth(request: Request) -> User:
     """
     Dependency that requires authentication.
     Returns 401 if user is not authenticated.
-    
+
     Usage:
         @router.post("/")
         async def protected_endpoint(user: User = Depends(require_auth)):
@@ -108,3 +108,25 @@ async def require_auth(request: Request) -> User:
         )
     return user
 
+
+async def require_internal_service(request: Request) -> User:
+    """
+    Dependency that requires service token authentication.
+    Only allows internal service-to-service communication.
+    Returns 401 if service token is not provided or invalid.
+
+    Usage:
+        @router.get("/internal")
+        async def internal_endpoint(user: User = Depends(require_internal_service)):
+            # Only internal services can access
+    """
+    service_token = request.headers.get("X-Service-Token")
+    if not service_token or service_token != SERVICE_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Service token required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    # Return service user
+    return User(email="service@cavemap.internal", user="service")

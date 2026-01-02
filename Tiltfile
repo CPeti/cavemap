@@ -46,3 +46,5 @@ k8s_yaml(
         ]
     )
 )
+
+k8s_resource('rabbitmq', port_forwards=[5672, 15672])

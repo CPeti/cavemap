@@ -43,6 +43,13 @@ groupDb:
   storage: 1Gi
   replicas: 1
 
+rabbitmq:
+  name: rabbitmq
+  user: admin
+  password: admin123
+  storage: 1Gi
+  replicas: 1
+
 frontend:
   image: cpeti/cave-frontend:latest
   replicas: 1

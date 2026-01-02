@@ -1,6 +1,6 @@
-from src.models.group import Group, GroupCave
+from src.models.group import Group, GroupMember, GroupCave
 from src.schemas.group import CaveAssign, CaveAssignmentRead, CaveGroupInfo, MemberRole
-from src.auth import User, require_auth
+from src.auth import User, require_auth, require_internal_service
 from src.routes.groups import get_group_or_404, get_user_membership, require_group_admin, fetch_usernames
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -103,75 +103,6 @@ async def assign_cave(
         assigned_at=new_assignment.assigned_at,
         assigned_by=username
     )
-
-
-# --- List group's caves ---
-@router.get("/{group_id}/caves", response_model=list[CaveAssignmentRead])
-async def list_group_caves(
-    group_id: int,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_auth)
-):
-    """List all caves assigned to a group. User must be a member."""
-    await get_group_or_404(session, group_id)
-    
-    membership = await get_user_membership(session, group_id, user.email)
-    if not membership:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not a member of this group"
-        )
-    
-    result = await session.execute(
-        select(GroupCave)
-        .where(GroupCave.group_id == group_id)
-        .order_by(GroupCave.assigned_at.desc())
-    )
-    group_caves = result.scalars().all()
-
-    # Get cave names from cave service
-    cave_ids = [gc.cave_id for gc in group_caves]
-    cave_names = {}
-
-    if cave_ids:
-        try:
-            # Call cave service to get cave details
-            async with httpx.AsyncClient() as client:
-                # Get cave details for all cave_ids
-                for cave_id in cave_ids:
-                    try:
-                        response = await client.get(
-                            f"{CAVE_SERVICE_URL}/caves/{cave_id}",
-                            headers={"X-Service-Token": SERVICE_TOKEN}
-                        )
-                        if response.status_code == 200:
-                            cave_data = response.json()
-                            cave_names[cave_id] = cave_data['name']
-                        else:
-                            cave_names[cave_id] = f"Cave #{cave_id}"
-                    except Exception as e:
-                        print(f"Error fetching cave {cave_id}: {e}")
-                        cave_names[cave_id] = f"Cave #{cave_id}"
-        except Exception as e:
-            print(f"Error connecting to cave service: {e}")
-            # Fallback to just showing IDs
-            for cave_id in cave_ids:
-                cave_names[cave_id] = f"Cave #{cave_id}"
-
-    # Add cave names to the response
-    result_with_names = []
-    for gc in group_caves:
-        result_with_names.append(CaveAssignmentRead(
-            id=gc.id,
-            group_id=gc.group_id,
-            cave_id=gc.cave_id,
-            cave_name=cave_names.get(gc.cave_id, f"Cave #{gc.cave_id}"),
-            assigned_at=gc.assigned_at,
-            assigned_by=gc.assigned_by
-        ))
-
-    return result_with_names
-
 
 # --- Get groups for a cave ---
 @router.get("/caves/{cave_id}/groups", response_model=list[CaveGroupInfo])
@@ -277,7 +208,7 @@ async def check_cave_permissions(
 async def delete_cave_assignments(
     cave_id: int,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_auth)
+    user: User = Depends(require_internal_service)
 ):
     """Delete all cave assignments for a specific cave. Requires service authentication."""
     # This endpoint should only be called by the cave service
@@ -292,4 +223,76 @@ async def delete_cave_assignments(
         await session.delete(assignment)
 
     await session.commit()
+
+
+# --- Get cave inheritance candidate ---
+@router.get("/caves/{cave_id}/inheritance")
+async def get_cave_inheritance_candidate(
+    cave_id: int,
+    current_owner_email: str = None,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_internal_service)
+):
+    """Get the email of the user who should inherit a cave ownership.
+
+    Returns the highest rank member (excluding current owner) from groups that the cave is assigned to.
+    Priority: owner > admin > member
+    Returns None if no suitable candidate exists.
+    """
+    # Get all groups that this cave is assigned to
+    result = await session.execute(
+        select(GroupCave, Group)
+        .join(Group, GroupCave.group_id == Group.group_id)
+        .where(GroupCave.cave_id == cave_id, Group.is_active == True)
+    )
+    assignments = result.all()
+
+    if not assignments:
+        # Cave is not assigned to any groups
+        return {
+            "action": "delete",
+            "inherit_email": None
+        }
+    
+    # Collect all group IDs
+    group_ids = [assignment[1].group_id for assignment in assignments]
+    
+    # Query all members from these groups
+    result = await session.execute(
+        select(GroupMember)
+        .where(GroupMember.group_id.in_(group_ids))
+    )
+    members = result.scalars().all()
+    
+    # Filter out current owner and sort by role priority
+    # Priority: OWNER > ADMIN > MEMBER
+    role_priority = {
+        MemberRole.OWNER: 3,
+        MemberRole.ADMIN: 2,
+        MemberRole.MEMBER: 1
+    }
+    
+    candidates = [
+        m for m in members 
+        if m.user_email != current_owner_email
+    ]
+    
+    if not candidates:
+        # No suitable candidate to inherit ownership
+        return {
+            "action": "delete",
+            "inherit_email": None
+        }
+    
+    # Sort by role priority (descending) and join date (ascending - prefer older members)
+    candidates.sort(
+        key=lambda m: (-role_priority.get(m.role, 0), m.joined_at)
+    )
+    
+    inherit_email = candidates[0].user_email
+    
+    return {
+        "action": "transfer",
+        "inherit_email": inherit_email
+    }
 

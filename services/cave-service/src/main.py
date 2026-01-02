@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.routes import caves
 from src.db.connection import init_db
+from src.utils.rabbitmq_consumer import start_rabbitmq_consumer, stop_rabbitmq_consumer
 import asyncio
 
 from contextlib import asynccontextmanager
@@ -11,7 +12,7 @@ from src.config.settings import settings
 async def lifespan(app: FastAPI):
     max_retries = 10
     retry_delay = 2
-    
+
     for attempt in range(max_retries):
         try:
             await init_db()
@@ -27,7 +28,23 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"✗ Failed to initialize database after {max_retries} attempts")
                 raise
+
+    # Start RabbitMQ consumer
+    try:
+        await start_rabbitmq_consumer()
+        print("✓ RabbitMQ consumer started successfully")
+    except Exception as e:
+        print(f"⚠ Failed to start RabbitMQ consumer: {str(e)[:100]}")
+        # Don't fail startup if RabbitMQ is not available
+
     yield
+
+    # Stop RabbitMQ consumer on shutdown
+    try:
+        await stop_rabbitmq_consumer()
+        print("✓ RabbitMQ consumer stopped successfully")
+    except Exception as e:
+        print(f"⚠ Error stopping RabbitMQ consumer: {str(e)[:100]}")
 
 app = FastAPI(
     title="Cave Database API", 

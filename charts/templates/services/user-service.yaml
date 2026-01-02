@@ -42,6 +42,8 @@ spec:
                 secretKeyRef:
                   name: service-secret
                   key: service-token
+            - name: RABBITMQ_URL
+              value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.name }}.{{ .Values.namespace }}.svc.cluster.local:5672"
           livenessProbe:
             httpGet:
               path: /health

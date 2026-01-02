@@ -8,4 +8,4 @@ psycopg[binary]
 pydantic-settings
 httpx
 email-validator
-
+aio-pika
