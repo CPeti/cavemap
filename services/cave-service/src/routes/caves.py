@@ -459,12 +459,27 @@ async def update_cave(
     if cave is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
 
-    # Check ownership
+    # Check ownership or group permissions
     if cave.owner_email != user.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only edit caves that you own"
-        )
+        # Check if user has edit permissions through group assignment
+        has_permission = False
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{GROUP_SERVICE_URL}/caves/{cave_id}/permissions/{user.email}",
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    has_permission = data.get("can_edit", False)
+        except Exception as e:
+            print(f"Error checking cave permissions with group service: {e}")
+        
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to edit this cave. Either own the cave or be an admin/owner of its assigned group."
+            )
 
     # Check if new name conflicts with existing caves
     if cave_update.name != cave.name:

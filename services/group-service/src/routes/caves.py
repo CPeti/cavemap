@@ -1,5 +1,5 @@
 from src.models.group import Group, GroupCave
-from src.schemas.group import CaveAssign, CaveAssignmentRead, CaveGroupInfo
+from src.schemas.group import CaveAssign, CaveAssignmentRead, CaveGroupInfo, MemberRole
 from src.auth import User, require_auth
 from src.routes.groups import get_group_or_404, get_user_membership, require_group_admin, fetch_usernames
 
@@ -239,6 +239,37 @@ async def unassign_cave(
     
     await session.delete(assignment)
     await session.commit()
+
+
+# --- Check if user has edit permissions for a cave ---
+@router.get("/{cave_id}/permissions/{user_email}")
+async def check_cave_permissions(
+    cave_id: int,
+    user_email: str,
+    session: AsyncSession = Depends(get_session)
+):
+    """Check if a user has edit permissions for a cave through group assignment.
+    
+    Returns {"can_edit": true} if the cave is assigned to a group and the user is an admin or owner of that group.
+    This is an internal service endpoint that doesn't require user authentication.
+    """
+    # Get the group that this cave is assigned to
+    result = await session.execute(
+        select(GroupCave).where(GroupCave.cave_id == cave_id)
+    )
+    assignment = result.scalar_one_or_none()
+    
+    if not assignment:
+        # Cave is not assigned to any group, no permissions through group
+        return {"can_edit": False}
+    
+    # Check if user is admin or owner of the group
+    membership = await get_user_membership(session, assignment.group_id, user_email)
+    
+    if membership and membership.role in [MemberRole.ADMIN, MemberRole.OWNER]:
+        return {"can_edit": True}
+    
+    return {"can_edit": False}
 
 
 # --- Delete all assignments for a cave (called by cave service) ---

@@ -535,22 +535,27 @@ export default function GroupDetail() {
 
                                         {isAdmin && member.role !== "owner" && member.username !== currentUsername && (
                                             <div className="flex items-center gap-2">
-                                                <select
-                                                    value={member.role}
-                                                    onChange={(e) => handleUpdateRole(member.member_id, e.target.value, member.username)}
-                                                    className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white"
-                                                >
-                                                    <option value="member">Member</option>
-                                                    <option value="admin">Admin</option>
-                                                    {isOwner && <option value="owner">Owner</option>}
-                                                </select>
-                                                <button
-                                                    onClick={() => handleRemoveMember(member.member_id, member.username)}
-                                                    className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
-                                                    title="Remove member"
-                                                >
-                                                    <XMarkIcon className="w-4 h-4" />
-                                                </button>
+                                                {/* Only owners can edit admins; admins can edit members */}
+                                                {(isOwner || member.role !== "admin") && (
+                                                    <select
+                                                        value={member.role}
+                                                        onChange={(e) => handleUpdateRole(member.member_id, e.target.value, member.username)}
+                                                        className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white"
+                                                    >
+                                                        <option value="member">Member</option>
+                                                        {isOwner && <option value="admin">Admin</option>}
+                                                        {isOwner && <option value="owner">Owner</option>}
+                                                    </select>
+                                                )}
+                                                {(isOwner || member.role !== "admin") && (
+                                                    <button
+                                                        onClick={() => handleRemoveMember(member.member_id, member.username)}
+                                                        className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
+                                                        title="Remove member"
+                                                    >
+                                                        <XMarkIcon className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>

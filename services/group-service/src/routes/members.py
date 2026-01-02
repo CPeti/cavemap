@@ -137,7 +137,11 @@ async def update_member_role(
         current_owner = await require_group_owner(session, group_id, user.email)
         # Demote current owner to admin
         current_owner.role = DBMemberRole.ADMIN
+    elif update.role == MemberRole.ADMIN or target_member.role == DBMemberRole.ADMIN:
+        # Only the group owner can grant or revoke admin status
+        await require_group_owner(session, group_id, user.email)
     else:
+        # Other role updates can be performed by admins or owners
         await require_group_admin(session, group_id, user.email)
     
     # Cannot demote the only owner

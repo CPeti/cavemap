@@ -287,7 +287,34 @@ async def join_group(
     session.add(new_member)
     await session.commit()
     await session.refresh(group, ["members", "caves"])
-    return group
+
+    # Enrich with usernames from user-service
+    emails = [m.user_email for m in group.members]
+    usernames_map = await fetch_usernames(emails)
+    
+    # Convert to dict and add usernames
+    group_dict = {
+        "group_id": group.group_id,
+        "name": group.name,
+        "description": group.description,
+        "join_policy": JoinPolicy(group.join_policy.value),
+        "created_at": group.created_at,
+        "updated_at": group.updated_at,
+        "is_active": group.is_active,
+        "members": [
+            {
+                "member_id": m.member_id,
+                "user_email": m.user_email,
+                "username": usernames_map.get(m.user_email, m.user_email.split('@')[0]),
+                "role": MemberRole(m.role.value),
+                "joined_at": m.joined_at
+            }
+            for m in group.members
+        ],
+        "caves": []
+    }
+    
+    return group_dict
 
 
 # --- Get group details ---

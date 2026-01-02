@@ -83,7 +83,29 @@ export default function CaveDetail() {
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const [addingGroup, setAddingGroup] = useState(false);
 
-    const canEdit = cave && cave.is_owner;
+    const [userEmail, setUserEmail] = useState(null);
+    const [hasGroupEditPermission, setHasGroupEditPermission] = useState(false);
+
+    const canEdit = cave && (cave.is_owner || hasGroupEditPermission);
+
+    // Fetch current user email for permission checks
+    useEffect(() => {
+        async function fetchUserEmail() {
+            try {
+                const res = await fetch(getApiUrl("/users/me"), {
+                    credentials: "include",
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setUserEmail(data.email);
+                }
+            } catch (err) {
+                console.error("Error fetching user info:", err);
+            }
+        }
+
+        fetchUserEmail();
+    }, []);
 
     useEffect(() => {
         async function fetchCave() {
@@ -164,6 +186,32 @@ export default function CaveDetail() {
         }
         fetchUserGroups();
     }, [cave, canEdit]);
+
+    // Check group-based edit permissions when not the owner
+    useEffect(() => {
+        async function checkGroupPermissions() {
+            if (!cave || cave.is_owner || !userEmail) return;
+
+            try {
+                const res = await fetch(
+                    getApiUrl(`/groups/${caveId}/permissions/${encodeURIComponent(userEmail)}`),
+                    { credentials: "include" }
+                );
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setHasGroupEditPermission(Boolean(data.can_edit));
+                } else {
+                    setHasGroupEditPermission(false);
+                }
+            } catch (err) {
+                console.error("Error checking cave permissions:", err);
+                setHasGroupEditPermission(false);
+            }
+        }
+
+        checkGroupPermissions();
+    }, [cave, caveId, userEmail]);
 
     if (loading) {
         return (
