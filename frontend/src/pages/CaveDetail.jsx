@@ -15,6 +15,8 @@ import {
     PlusIcon,
     TrashIcon,
     UserGroupIcon,
+    PhotoIcon,
+    DocumentIcon,
 } from "@heroicons/react/24/outline";
 import CoordinateInput from "../components/CoordinateInput";
 import { getApiUrl, getOAuthUrl } from "../config";
@@ -86,6 +88,11 @@ export default function CaveDetail() {
     const [userEmail, setUserEmail] = useState(null);
     const [hasGroupEditPermission, setHasGroupEditPermission] = useState(false);
 
+    // Media state
+    const [mediaFiles, setMediaFiles] = useState([]);
+    const [uploadingMedia, setUploadingMedia] = useState(false);
+    const [showMediaUpload, setShowMediaUpload] = useState(false);
+
     const canEdit = cave && (cave.is_owner || hasGroupEditPermission);
 
     // Fetch current user email for permission checks
@@ -126,6 +133,9 @@ export default function CaveDetail() {
 
                 const data = await res.json();
                 setCave(data);
+
+                // Initialize media files
+                setMediaFiles(data.media_files || []);
 
                 // Initialize edit form with current cave data
                 setEditForm({
@@ -577,6 +587,106 @@ export default function CaveDetail() {
         setEntranceForm(prev => ({ ...prev, [field]: value }));
     };
 
+    // Media handling functions
+    const handleFileUpload = async (files) => {
+        if (!files || files.length === 0) return;
+
+        setUploadingMedia(true);
+
+        try {
+            // Get current user email for upload
+            const userRes = await fetch(getApiUrl("/users/me"), {
+                credentials: "include",
+            });
+
+            if (!userRes.ok) {
+                throw new Error("Failed to get user info");
+            }
+
+            const userData = await userRes.json();
+
+            for (const file of files) {
+                // First, upload the file to media-service
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const uploadUrl = getApiUrl(`/media/upload?uploaded_by=${encodeURIComponent(userData.email)}`);
+
+                const uploadRes = await fetch(uploadUrl, {
+                    method: "POST",
+                    credentials: "include",
+                    body: formData,
+                });
+
+                if (!uploadRes.ok) {
+                    const errorData = await uploadRes.json().catch(() => ({}));
+                    throw new Error(errorData.detail || "Failed to upload file");
+                }
+
+                const uploadData = await uploadRes.json();
+
+                // Then associate the uploaded media with the cave
+                const associateRes = await fetch(getApiUrl(`/caves/${caveId}/media/${uploadData.media_file.id}`), {
+                    method: "POST",
+                    credentials: "include",
+                });
+
+                if (!associateRes.ok) {
+                    const errorData = await associateRes.json().catch(() => ({}));
+                    throw new Error(errorData.detail || "Failed to associate media with cave");
+                }
+
+                // Add the new media to the state
+                setMediaFiles(prev => [...prev, uploadData.media_file]);
+            }
+        } catch (err) {
+            console.error("Error uploading media:", err);
+            alert("Failed to upload media: " + err.message);
+        } finally {
+            setUploadingMedia(false);
+            setShowMediaUpload(false);
+        }
+    };
+
+    const handleRemoveMedia = async (mediaId) => {
+        if (!confirm("Are you sure you want to remove this media from the cave?")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(getApiUrl(`/caves/${caveId}/media/${mediaId}`), {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || "Failed to remove media from cave");
+            }
+
+            // Remove from state
+            setMediaFiles(prev => prev.filter(media => media.id !== mediaId));
+        } catch (err) {
+            console.error("Error removing media:", err);
+            alert("Failed to remove media: " + err.message);
+        }
+    };
+
+    const getMediaIcon = (contentType) => {
+        if (contentType?.startsWith('image/')) {
+            return PhotoIcon;
+        }
+        return DocumentIcon;
+    };
+
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 pt-16">
             {/* Header */}
@@ -780,6 +890,164 @@ export default function CaveDetail() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Image Gallery */}
+                        {(() => {
+                            const imageFiles = mediaFiles.filter(media => media.content_type?.startsWith('image/'));
+                            return (
+                                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                                    <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                                        <PhotoIcon className="w-4 h-4 text-teal-400" />
+                                        Image Gallery
+                                        <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                                            {imageFiles.length}
+                                        </span>
+                                        {canEdit && (
+                                            <button
+                                                onClick={() => setShowMediaUpload(true)}
+                                                className="ml-2 inline-flex items-center gap-1 text-xs bg-teal-500 text-white px-2 py-1 rounded hover:bg-teal-400 transition-colors"
+                                            >
+                                                <PlusIcon className="w-3 h-3" />
+                                                Upload
+                                            </button>
+                                        )}
+                                    </h2>
+
+                                    {imageFiles.length > 0 ? (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                            {imageFiles.map((media) => (
+                                                <div key={media.id} className="group">
+                                                    <div className="relative">
+                                                        <div className="aspect-square bg-slate-700 rounded-lg overflow-hidden">
+                                                            <img
+                                                                src={getApiUrl(`/media/${media.id}/image`)}
+                                                                alt={media.original_filename}
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDMTMuMSAyIDE0IDIuOSAxNCA0VjE2QzE0IDE3LjEgMTMuMSAxOCA4IDE4QzYuOSAxOCA2IDE3LjEgNiAxNlY0QzYgMi45IDYuOSAyIDggMkg5QzEwLjEgMiAxMSAyLjkgMTEgNFYxNkgxMkMxMy4xIDE2IDE0IDE1LjEgMTQgMTNIMTZWMTRIMThDMjAuMSAxMiAyMiAxMC4xIDIyIDhWNUMyMiAzLjkgMjAuMSAyIDE4IDJIMTJ6IiBmaWxsPSIjOWNhM2FmIi8+Cjwvc3ZnPgo=';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                                                            <a
+                                                                href={getApiUrl(`/media/${media.id}/image`)}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors"
+                                                                title="View full size"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                </svg>
+                                                            </a>
+                                                            {canEdit && (
+                                                                <button
+                                                                    onClick={() => handleRemoveMedia(media.id)}
+                                                                    className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full transition-colors"
+                                                                    title="Remove from cave"
+                                                                >
+                                                                    <XMarkIcon className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-2">
+                                                        <div className="text-xs font-medium text-white truncate" title={media.original_filename}>
+                                                            {media.original_filename}
+                                                        </div>
+                                                        <div className="text-xs text-slate-500">
+                                                            {formatFileSize(media.file_size)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <PhotoIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                                            <p className="text-sm text-slate-500 mb-4">No images attached</p>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => setShowMediaUpload(true)}
+                                                    className="inline-flex items-center gap-2 text-xs bg-teal-500 text-white px-3 py-2 rounded hover:bg-teal-400 transition-colors"
+                                                >
+                                                    <PlusIcon className="w-3 h-3" />
+                                                    Upload Images
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Other Files */}
+                        {(() => {
+                            const otherFiles = mediaFiles.filter(media => !media.content_type?.startsWith('image/'));
+                            return otherFiles.length > 0 && (
+                                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                                    <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                                        <DocumentIcon className="w-4 h-4 text-teal-400" />
+                                        Other Files
+                                        <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                                            {otherFiles.length}
+                                        </span>
+                                    </h2>
+
+                                    <div className="space-y-3">
+                                        {otherFiles.map((media) => {
+                                            const MediaIcon = getMediaIcon(media.content_type);
+                                            return (
+                                                <div
+                                                    key={media.id}
+                                                    className="flex items-center justify-between p-3 bg-slate-800 border border-slate-700 rounded-lg"
+                                                >
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className="flex-shrink-0">
+                                                            <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
+                                                                <MediaIcon className="w-5 h-5 text-slate-400" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-medium text-white truncate">
+                                                                {media.original_filename}
+                                                            </div>
+                                                            <div className="text-xs text-slate-500">
+                                                                {formatFileSize(media.file_size)} • {media.content_type}
+                                                            </div>
+                                                            <div className="text-xs text-slate-600">
+                                                                Uploaded by {media.uploaded_by} • {new Date(media.uploaded_at).toLocaleDateString()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {media.download_url && (
+                                                            <a
+                                                                href={media.download_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                                                            >
+                                                                Download
+                                                            </a>
+                                                        )}
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={() => handleRemoveMedia(media.id)}
+                                                                className="text-slate-400 hover:text-red-400 transition-colors"
+                                                                title="Remove from cave"
+                                                            >
+                                                                <XMarkIcon className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* Right Column - Survey Info */}
@@ -1271,6 +1539,76 @@ export default function CaveDetail() {
                                     className="flex-1 bg-teal-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {addingGroup ? "Adding..." : "Add to Group"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Media Upload Modal */}
+            {showMediaUpload && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMediaUpload(false)} />
+
+                    <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-white">Upload Media</h2>
+                            <button
+                                onClick={() => setShowMediaUpload(false)}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-2">
+                                    Select Files
+                                </label>
+                                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
+                                    <PhotoIcon className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                                <p className="text-sm text-slate-500 mb-4">
+                                    Drag and drop images and files here, or click to browse
+                                </p>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        accept="image/*,video/*,audio/*,application/pdf,text/*"
+                                        onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+                                        className="hidden"
+                                        id="media-upload"
+                                        disabled={uploadingMedia}
+                                    />
+                                    <label
+                                        htmlFor="media-upload"
+                                        className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {uploadingMedia ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                Uploading...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <PlusIcon className="w-4 h-4" />
+                                                Choose Files
+                                            </>
+                                        )}
+                                    </label>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Images will appear in the gallery above. Other files will appear in the downloads list.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setShowMediaUpload(false)}
+                                    className="flex-1 bg-slate-700 text-white font-medium px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors"
+                                >
+                                    Cancel
                                 </button>
                             </div>
                         </div>

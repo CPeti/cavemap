@@ -1,7 +1,7 @@
 import logging
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -18,6 +18,11 @@ from src.schemas.media import (
     UploadResponse,
     MediaMetadataCreate
 )
+from pydantic import BaseModel
+
+
+class BatchMediaRequest(BaseModel):
+    media_file_ids: List[int]
 from src.utils.azure_storage import azure_storage
 from src.config.settings import settings
 
@@ -303,3 +308,101 @@ async def update_file(
         logger.error(f"Error updating file {file_id}: {e}")
         await session.rollback()
         raise HTTPException(status_code=500, detail="Failed to update file")
+
+
+@router.post("/batch", response_model=List[dict])
+async def get_media_batch(
+    request: BatchMediaRequest,
+    session: AsyncSession = Depends(get_session)
+):
+    """Get multiple media files by their IDs."""
+    if not request.media_file_ids:
+        return []
+
+    # Query for media files
+    query = (
+        select(MediaFile)
+        .where(MediaFile.id.in_(request.media_file_ids))
+        .options(selectinload(MediaFile.file_metadata))
+    )
+    result = await session.execute(query)
+    files = result.scalars().all()
+
+    # Convert to response format and add download URLs
+    media_files = []
+    for file in files:
+        file_dict = {
+            "id": file.id,
+            "filename": file.filename,
+            "original_filename": file.original_filename,
+            "file_path": file.file_path,
+            "file_size": file.file_size,
+            "content_type": file.content_type,
+            "uploaded_by": file.uploaded_by,
+            "uploaded_at": file.uploaded_at.isoformat(),
+            "container_name": file.container_name,
+            "file_metadata": [
+                {
+                    "id": meta.id,
+                    "media_file_id": meta.media_file_id,
+                    "key": meta.key,
+                    "value": meta.value,
+                    "metadata_type": meta.metadata_type
+                }
+                for meta in file.file_metadata
+            ]
+        }
+
+        # Add download URL - use longer expiry for images that might be cached
+        try:
+            expiry_hours = 168 if file.content_type and file.content_type.startswith('image/') else 24  # 7 days for images, 24 hours for others
+            download_url = await azure_storage.get_file_url(file.filename, expiry_hours)
+            file_dict["download_url"] = download_url
+            logger.info(f"Generated download URL for file {file.id}: {download_url[:100]}...")
+        except Exception as e:
+            logger.warning(f"Failed to get download URL for file {file.id}: {e}")
+            file_dict["download_url"] = None
+
+        media_files.append(file_dict)
+
+    return media_files
+
+
+@router.get("/{file_id}/image")
+async def get_image(
+    file_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """Serve an image file directly with proper CORS headers."""
+    try:
+        # Get file metadata
+        query = select(MediaFile).where(MediaFile.id == file_id)
+        result = await session.execute(query)
+        file = result.scalar_one_or_none()
+
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File is not an image")
+
+        # Stream the file from Azure
+        file_data = await azure_storage.download_file(file.filename)
+
+        return StreamingResponse(
+            io.BytesIO(file_data),
+            media_type=file.content_type,
+            headers={
+                "Content-Disposition": f"inline; filename={file.original_filename}",
+                "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving image {file_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to serve image")

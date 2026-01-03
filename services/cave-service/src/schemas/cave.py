@@ -1,6 +1,7 @@
 # schemas.py
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime
 
 class EntranceBase(BaseModel):
     name: Optional[str] = None
@@ -16,6 +17,35 @@ class EntranceRead(EntranceBase):
 
     class Config:
         from_attributes = True
+
+
+class CaveMediaBase(BaseModel):
+    media_file_id: int
+    added_by: str
+    added_at: datetime
+
+
+class CaveMediaCreate(BaseModel):
+    media_file_id: int
+
+
+class CaveMediaRead(CaveMediaBase):
+    cave_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class MediaFileSummary(BaseModel):
+    """Summary of media file from media-service."""
+    id: int
+    filename: str
+    original_filename: str
+    content_type: str
+    file_size: int
+    uploaded_by: str
+    uploaded_at: datetime
+    download_url: Optional[str] = None
 
 
 class CaveBase(BaseModel):
@@ -38,6 +68,7 @@ class CaveRead(CaveBase):
     owner_username: str
     is_owner: bool
     entrances: List[EntranceRead] = []
+    media_files: List[MediaFileSummary] = []
 
     class Config:
         from_attributes = True

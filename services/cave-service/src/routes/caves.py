@@ -1,6 +1,6 @@
 import asyncio
-from src.models.cave import Cave, Entrance
-from src.schemas.cave import CaveCreate, CaveRead, UserStats, EntranceCreate, EntranceRead
+from src.models.cave import Cave, Entrance, CaveMedia
+from src.schemas.cave import CaveCreate, CaveRead, UserStats, EntranceCreate, EntranceRead, MediaFileSummary
 from src.auth import User, get_current_user, require_auth
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -24,6 +24,9 @@ USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service.default.sv
 
 # Group service URL
 GROUP_SERVICE_URL = os.getenv("GROUP_SERVICE_URL", "http://group-service.default.svc.cluster.local")
+
+# Media service URL
+MEDIA_SERVICE_URL = os.getenv("MEDIA_SERVICE_URL", "http://media-service.default.svc.cluster.local")
 
 # Service authentication token for internal service-to-service communication
 SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
@@ -58,6 +61,38 @@ async def fetch_usernames(emails: list[str]) -> dict[str, str]:
     except Exception as e:
         logger.error(f"Error fetching usernames after retries: {e}")
         return {}
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _fetch_media_files_with_retry(media_file_ids: list[int]) -> list[dict]:
+    """Fetch media files from media-service with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{MEDIA_SERVICE_URL}/media/batch",
+            json={"media_file_ids": media_file_ids},
+            headers={"Authorization": f"Bearer {SERVICE_TOKEN}"},
+            timeout=5.0
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warning(f"Failed to fetch media files: {response.status_code}")
+            return []
+
+async def fetch_media_files(media_file_ids: list[int]) -> list[dict]:
+    """Fetch media files from media-service for given IDs."""
+    if not media_file_ids:
+        return []
+    logger.info(f"fetching media files for {media_file_ids}")
+    try:
+        return await _fetch_media_files_with_retry(media_file_ids)
+    except Exception as e:
+        logger.error(f"Error fetching media files after retries: {e}")
+        return []
 
 
 # --- Health check endpoint (for K8s probes) ---
@@ -406,6 +441,7 @@ async def get_cave(cave_id: int, session: AsyncSession = Depends(get_session), u
     result = await session.execute(
         select(Cave)
         .options(selectinload(Cave.entrances))
+        .options(selectinload(Cave.media_files))
         .where(Cave.cave_id == cave_id)
     )
     cave = result.scalar_one_or_none()
@@ -417,6 +453,23 @@ async def get_cave(cave_id: int, session: AsyncSession = Depends(get_session), u
     usernames_map = await fetch_usernames([cave.owner_email])
     print(f"Usernames map: {usernames_map}")
 
+    # Fetch media files
+    media_file_ids = [cm.media_file_id for cm in cave.media_files]
+    media_files_data = await fetch_media_files(media_file_ids)
+    # Convert to MediaFileSummary format
+    media_files = [
+        MediaFileSummary(
+            id=mf["id"],
+            filename=mf["filename"],
+            original_filename=mf["original_filename"],
+            content_type=mf["content_type"],
+            file_size=mf["file_size"],
+            uploaded_by=mf["uploaded_by"],
+            uploaded_at=mf["uploaded_at"],
+            download_url=mf.get("download_url")
+        )
+        for mf in media_files_data
+    ]
 
     # Check if current user is the owner
     is_owner = cave.owner_email == user.email
@@ -444,6 +497,19 @@ async def get_cave(cave_id: int, session: AsyncSession = Depends(get_session), u
                 "asl_m": e.asl_m
             }
             for e in cave.entrances
+        ],
+        "media_files": [
+            {
+                "id": mf.id,
+                "filename": mf.filename,
+                "original_filename": mf.original_filename,
+                "content_type": mf.content_type,
+                "file_size": mf.file_size,
+                "uploaded_by": mf.uploaded_by,
+                "uploaded_at": mf.uploaded_at.isoformat(),
+                "download_url": mf.download_url
+            }
+            for mf in media_files
         ]
     }
 
@@ -591,6 +657,139 @@ async def delete_cave(
     # Delete the cave (entrances will be cascade deleted due to relationship)
     await session.delete(cave)
     await session.commit()
+
+
+# --- Associate media with cave endpoint ---
+# Protected - requires authentication
+@router.post("/{cave_id}/media/{media_file_id}", status_code=status.HTTP_201_CREATED)
+async def associate_media_with_cave(
+    cave_id: int,
+    media_file_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Associate a media file with a cave."""
+
+    # Check if cave exists
+    cave = await session.scalar(select(Cave).where(Cave.cave_id == cave_id))
+    if not cave:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    # Check if user owns the cave or if media is already associated
+    if cave.owner_email != user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only associate media with caves you own"
+        )
+
+    # Check if association already exists
+    existing = await session.scalar(
+        select(CaveMedia).where(
+            CaveMedia.cave_id == cave_id,
+            CaveMedia.media_file_id == media_file_id
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Media file is already associated with this cave"
+        )
+
+    # Verify media file exists in media-service
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{MEDIA_SERVICE_URL}/media/{media_file_id}",
+                headers={"Authorization": f"Bearer {SERVICE_TOKEN}"},
+                timeout=5.0
+            )
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Media file not found"
+                )
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Media service timeout"
+        )
+
+    # Create association
+    cave_media = CaveMedia(
+        cave_id=cave_id,
+        media_file_id=media_file_id,
+        added_by=user.email
+    )
+    session.add(cave_media)
+    await session.commit()
+
+    return {"message": "Media associated with cave successfully"}
+
+
+# --- Delete media from cave endpoint ---
+# Protected - requires authentication
+@router.delete("/{cave_id}/media/{media_file_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_media_from_cave(
+    cave_id: int,
+    media_file_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_auth)
+):
+    """Delete a media file from a cave."""
+
+    # Check if cave exists and user owns it
+    cave = await session.scalar(select(Cave).where(Cave.cave_id == cave_id))
+    if not cave:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    if cave.owner_email != user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete media from caves you own"
+        )
+
+    # Find and delete the association
+    cave_media = await session.scalar(
+        select(CaveMedia).where(
+            CaveMedia.cave_id == cave_id,
+            CaveMedia.media_file_id == media_file_id
+        )
+    )
+    if not cave_media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media file is not associated with this cave"
+        )
+
+    await session.delete(cave_media)
+    await session.commit()
+
+    # Tell media-service to delete the underlying media file
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(
+                f"{MEDIA_SERVICE_URL}/media/{media_file_id}",
+                headers={"Authorization": f"Bearer {SERVICE_TOKEN}"},
+                timeout=5.0
+            )
+
+        # Accept 2xx as success; 404 is also fine (already gone)
+        if response.status_code >= 500:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to delete media file from media service"
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Media service timeout while deleting file"
+        )
+    except httpx.HTTPError as exc:
+        logger.error(f"Error contacting media service to delete media {media_file_id}: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Media service error while deleting file"
+        )
 
 
 # --- Get user statistics endpoint ---

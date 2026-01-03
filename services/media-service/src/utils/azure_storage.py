@@ -1,5 +1,6 @@
 import logging
 from typing import Optional, BinaryIO
+import asyncio
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from src.config.settings import settings
@@ -61,21 +62,24 @@ class AzureBlobStorage:
             The blob URL
         """
         try:
-            blob_client = self.blob_service_client.get_blob_client(
-                container=self.container_name,
-                blob=blob_name
-            )
-
-            # Upload the file
-            file_data.seek(0)  # Ensure we're at the beginning
-            blob_client.upload_blob(
-                file_data,
-                overwrite=True,
-                content_type=content_type
-            )
-
+            loop = asyncio.get_event_loop()
+            
+            def _upload():
+                blob_client = self.blob_service_client.get_blob_client(
+                    container=self.container_name,
+                    blob=blob_name
+                )
+                file_data.seek(0)
+                blob_client.upload_blob(
+                    file_data,
+                    overwrite=True,
+                    content_type=content_type
+                )
+                return blob_client.url
+            
+            url = await loop.run_in_executor(None, _upload)
             logger.info(f"Successfully uploaded file: {blob_name}")
-            return blob_client.url
+            return url
 
         except Exception as e:
             logger.error(f"Error uploading file {blob_name}: {e}")
@@ -91,14 +95,17 @@ class AzureBlobStorage:
             File content as bytes
         """
         try:
-            blob_client = self.blob_service_client.get_blob_client(
-                container=self.container_name,
-                blob=blob_name
-            )
-
-            download_stream = blob_client.download_blob()
-            data = download_stream.readall()
-
+            loop = asyncio.get_event_loop()
+            
+            def _download():
+                blob_client = self.blob_service_client.get_blob_client(
+                    container=self.container_name,
+                    blob=blob_name
+                )
+                download_stream = blob_client.download_blob()
+                return download_stream.readall()
+            
+            data = await loop.run_in_executor(None, _download)
             logger.info(f"Successfully downloaded file: {blob_name}")
             return data
 
@@ -119,12 +126,17 @@ class AzureBlobStorage:
             True if deleted, False if not found
         """
         try:
-            blob_client = self.blob_service_client.get_blob_client(
-                container=self.container_name,
-                blob=blob_name
-            )
-
-            result = blob_client.delete_blob()
+            loop = asyncio.get_event_loop()
+            
+            def _delete():
+                blob_client = self.blob_service_client.get_blob_client(
+                    container=self.container_name,
+                    blob=blob_name
+                )
+                blob_client.delete_blob()
+                return True
+            
+            await loop.run_in_executor(None, _delete)
             logger.info(f"Successfully deleted file: {blob_name}")
             return True
 
@@ -181,12 +193,17 @@ class AzureBlobStorage:
             True if file exists, False otherwise
         """
         try:
-            blob_client = self.blob_service_client.get_blob_client(
-                container=self.container_name,
-                blob=blob_name
-            )
-
-            return blob_client.exists()
+            loop = asyncio.get_event_loop()
+            
+            def _exists():
+                blob_client = self.blob_service_client.get_blob_client(
+                    container=self.container_name,
+                    blob=blob_name
+                )
+                return blob_client.exists()
+            
+            exists = await loop.run_in_executor(None, _exists)
+            return exists
 
         except Exception as e:
             logger.error(f"Error checking if file exists {blob_name}: {e}")
