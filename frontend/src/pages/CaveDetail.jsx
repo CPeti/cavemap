@@ -19,6 +19,7 @@ import {
     DocumentIcon,
 } from "@heroicons/react/24/outline";
 import CoordinateInput from "../components/CoordinateInput";
+import ImageGallery from "../components/ImageGallery";
 import { getApiUrl, getOAuthUrl } from "../config";
 
 const InfoItem = ({ label, value, unit }) => (
@@ -892,94 +893,13 @@ export default function CaveDetail() {
                         </div>
 
                         {/* Image Gallery */}
-                        {(() => {
-                            const imageFiles = mediaFiles.filter(media => media.content_type?.startsWith('image/'));
-                            return (
-                                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-                                    <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-                                        <PhotoIcon className="w-4 h-4 text-teal-400" />
-                                        Image Gallery
-                                        <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
-                                            {imageFiles.length}
-                                        </span>
-                                        {canEdit && (
-                                            <button
-                                                onClick={() => setShowMediaUpload(true)}
-                                                className="ml-2 inline-flex items-center gap-1 text-xs bg-teal-500 text-white px-2 py-1 rounded hover:bg-teal-400 transition-colors"
-                                            >
-                                                <PlusIcon className="w-3 h-3" />
-                                                Upload
-                                            </button>
-                                        )}
-                                    </h2>
-
-                                    {imageFiles.length > 0 ? (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                            {imageFiles.map((media) => (
-                                                <div key={media.id} className="group">
-                                                    <div className="relative">
-                                                        <div className="aspect-square bg-slate-700 rounded-lg overflow-hidden">
-                                                            <img
-                                                                src={getApiUrl(`/media/${media.id}/image`)}
-                                                                alt={media.original_filename}
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDMTMuMSAyIDE0IDIuOSAxNCA0VjE2QzE0IDE3LjEgMTMuMSAxOCA4IDE4QzYuOSAxOCA2IDE3LjEgNiAxNlY0QzYgMi45IDYuOSAyIDggMkg5QzEwLjEgMiAxMSAyLjkgMTEgNFYxNkgxMkMxMy4xIDE2IDE0IDE1LjEgMTQgMTNIMTZWMTRIMThDMjAuMSAxMiAyMiAxMC4xIDIyIDhWNUMyMiAzLjkgMjAuMSAyIDE4IDJIMTJ6IiBmaWxsPSIjOWNhM2FmIi8+Cjwvc3ZnPgo=';
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                                                            <a
-                                                                href={getApiUrl(`/media/${media.id}/image`)}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors"
-                                                                title="View full size"
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                                </svg>
-                                                            </a>
-                                                            {canEdit && (
-                                                                <button
-                                                                    onClick={() => handleRemoveMedia(media.id)}
-                                                                    className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full transition-colors"
-                                                                    title="Remove from cave"
-                                                                >
-                                                                    <XMarkIcon className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-2">
-                                                        <div className="text-xs font-medium text-white truncate" title={media.original_filename}>
-                                                            {media.original_filename}
-                                                        </div>
-                                                        <div className="text-xs text-slate-500">
-                                                            {formatFileSize(media.file_size)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8">
-                                            <PhotoIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                                            <p className="text-sm text-slate-500 mb-4">No images attached</p>
-                                            {canEdit && (
-                                                <button
-                                                    onClick={() => setShowMediaUpload(true)}
-                                                    className="inline-flex items-center gap-2 text-xs bg-teal-500 text-white px-3 py-2 rounded hover:bg-teal-400 transition-colors"
-                                                >
-                                                    <PlusIcon className="w-3 h-3" />
-                                                    Upload Images
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })()}
+                        <ImageGallery
+                            images={mediaFiles.filter(media => media.content_type?.startsWith('image/'))}
+                            canEdit={canEdit}
+                            onUploadClick={() => setShowMediaUpload(true)}
+                            onRemoveImage={handleRemoveMedia}
+                            maxInitialDisplay={8}
+                        />
 
                         {/* Other Files */}
                         {(() => {
