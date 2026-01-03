@@ -46,7 +46,7 @@ docker_build(
 k8s_yaml(
     helm(
         './charts',
-        values=['./charts/values.yaml'],
+        values=['./charts/values.yaml', './charts/values-secret.yaml'],
         set=[
             'caveService.image=cave-service-image',
             'userService.image=user-service-image',

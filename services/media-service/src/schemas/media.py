@@ -35,7 +35,7 @@ class MediaFileCreate(BaseModel):
 class MediaFile(MediaFileBase):
     id: int
     uploaded_at: datetime
-    metadata: List[MediaMetadata] = []
+    file_metadata: List[MediaMetadata] = []
 
     class Config:
         from_attributes = True

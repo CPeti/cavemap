@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 import io
 
 from src.db.connection import get_session
@@ -96,8 +97,13 @@ async def upload_file(
 
         await session.commit()
 
-        # Refresh to get metadata
-        await session.refresh(media_file)
+        # Reload with eager loading to access relationship
+        query = select(MediaFile).where(MediaFile.id == media_file.id).options(selectinload(MediaFile.file_metadata))
+        result = await session.execute(query)
+        media_file = result.scalar_one()
+
+        # Generate download URL
+        download_url = await azure_storage.get_file_url(unique_filename)
 
         return UploadResponse(
             media_file=MediaFileSchema.from_orm(media_file),
@@ -141,7 +147,7 @@ async def get_file(
 ):
     """Get detailed information about a specific file."""
     try:
-        query = select(MediaFile).where(MediaFile.id == file_id)
+        query = select(MediaFile).where(MediaFile.id == file_id).options(selectinload(MediaFile.file_metadata))
         result = await session.execute(query)
         file = result.scalar_one_or_none()
 
@@ -283,7 +289,11 @@ async def update_file(
                 session.add(metadata)
 
         await session.commit()
-        await session.refresh(file)
+        
+        # Reload with eager loading
+        query = select(MediaFile).where(MediaFile.id == file_id).options(selectinload(MediaFile.file_metadata))
+        result = await session.execute(query)
+        file = result.scalar_one()
 
         return MediaFileSchema.from_orm(file)
 

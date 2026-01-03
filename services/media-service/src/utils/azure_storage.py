@@ -10,16 +10,17 @@ class AzureBlobStorage:
     def __init__(self):
         self.blob_service_client = None
         self.container_name = settings.azure_storage_container_name
-        print("=" * 100)
-        print(settings.azure_storage_connection_string)
-        print(settings.azure_storage_account_name)
-        print(settings.azure_storage_account_key)
-        print("=" * 100)
-        # Initialize blob service client
+        
+        # Validate and initialize blob service client
         if settings.azure_storage_connection_string:
-            self.blob_service_client = BlobServiceClient.from_connection_string(
-                settings.azure_storage_connection_string
-            )
+            try:
+                self.blob_service_client = BlobServiceClient.from_connection_string(
+                    settings.azure_storage_connection_string
+                )
+                logger.info("Initialized Azure Blob Storage with connection string")
+            except Exception as e:
+                logger.error(f"Error creating blob service client from connection string: {e}")
+                raise
         elif settings.azure_storage_account_name and settings.azure_storage_account_key:
             account_url = f"https://{settings.azure_storage_account_name}.blob.core.windows.net"
             try:
@@ -27,10 +28,9 @@ class AzureBlobStorage:
                     account_url=account_url,
                     credential=settings.azure_storage_account_key
                 )
-                print("✅"*1000)
+                logger.info(f"Initialized Azure Blob Storage with account key for {settings.azure_storage_account_name}")
             except Exception as e:
                 logger.error(f"Error creating blob service client: {e}")
-                print("❌"*1000)
                 raise
         else:
             raise ValueError("Azure storage credentials not configured")
