@@ -610,8 +610,9 @@ export default function CaveDetail() {
                 // First, upload the file to media-service
                 const formData = new FormData();
                 formData.append('file', file);
+                formData.append('cave_id', caveId.toString());
 
-                const uploadUrl = getApiUrl(`/media/upload?uploaded_by=${encodeURIComponent(userData.email)}`);
+                const uploadUrl = getApiUrl(`/media/upload`);
 
                 const uploadRes = await fetch(uploadUrl, {
                     method: "POST",
@@ -620,24 +621,21 @@ export default function CaveDetail() {
                 });
 
                 if (!uploadRes.ok) {
-                    const errorData = await uploadRes.json().catch(() => ({}));
-                    throw new Error(errorData.detail || "Failed to upload file");
+                    let errorMessage = `HTTP ${uploadRes.status}`;
+                    try {
+                        const errorData = await uploadRes.json();
+                        console.error("Upload error response:", errorData);
+                        errorMessage = errorData.detail || JSON.stringify(errorData);
+                    } catch (e) {
+                        console.error("Failed to parse error response:", e);
+                        errorMessage = "Failed to upload file";
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const uploadData = await uploadRes.json();
 
-                // Then associate the uploaded media with the cave
-                const associateRes = await fetch(getApiUrl(`/caves/${caveId}/media/${uploadData.media_file.id}`), {
-                    method: "POST",
-                    credentials: "include",
-                });
-
-                if (!associateRes.ok) {
-                    const errorData = await associateRes.json().catch(() => ({}));
-                    throw new Error(errorData.detail || "Failed to associate media with cave");
-                }
-
-                // Add the new media to the state
+                // Add the new media to the state (association is handled by media service)
                 setMediaFiles(prev => [...prev, uploadData.media_file]);
             }
         } catch (err) {

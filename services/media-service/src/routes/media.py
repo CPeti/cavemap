@@ -1,12 +1,15 @@
 import logging
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, Response, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import io
+import httpx
+import os
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from src.db.connection import get_session
 from src.models.media import MediaFile, MediaMetadata
@@ -18,6 +21,7 @@ from src.schemas.media import (
     UploadResponse,
     MediaMetadataCreate
 )
+from src.auth import User, require_auth
 from pydantic import BaseModel
 
 
@@ -26,18 +30,107 @@ class BatchMediaRequest(BaseModel):
 from src.utils.azure_storage import azure_storage
 from src.config.settings import settings
 
+# Group service URL
+GROUP_SERVICE_URL = os.getenv("GROUP_SERVICE_URL", "http://group-service.default.svc.cluster.local")
+
+# Cave service URL
+CAVE_SERVICE_URL = os.getenv("CAVE_SERVICE_URL", "http://cave-service.default.svc.cluster.local")
+
+# Service authentication token for internal service-to-service communication
+SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _check_cave_permissions_with_retry(cave_id: int, user_email: str) -> bool:
+    """Check cave edit permissions with cave ownership and group permissions with retries."""
+
+    # First check if user is the cave owner
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{CAVE_SERVICE_URL}/caves/{cave_id}/permissions/{user_email}",
+            headers={"X-Service-Token": SERVICE_TOKEN},
+            timeout=5.0
+        )
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if data.get("can_edit", False):
+                    return True  # User is the cave owner
+            except Exception as e:
+                logger.warning(f"Failed to parse cave service response: {e}")
+
+    # If not the owner, check group permissions
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{GROUP_SERVICE_URL}/groups/{cave_id}/permissions/{user_email}",
+            headers={"X-Service-Token": SERVICE_TOKEN},
+            timeout=5.0
+        )
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                return data.get("can_edit", False)
+            except Exception as e:
+                logger.warning(f"Failed to parse group service response: {e}")
+                return False
+
+        logger.warning(f"Group service returned status {response.status_code} for cave {cave_id}, user {user_email}")
+        return False
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _notify_cave_service_with_retry(cave_id: int, media_file_id: int):
+    """Notify cave service that media was added with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CAVE_SERVICE_URL}/caves/{cave_id}/media/{media_file_id}/internal",
+            headers={"X-Service-Token": SERVICE_TOKEN},
+            timeout=5.0
+        )
+        print(f"Cave service response: {response.json()}")
+        response.raise_for_status()
+
+
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    uploaded_by: str = Query(..., description="Email of the user uploading the file"),
+    cave_id: int = Form(..., description="ID of the cave to associate the file with"),
+    user: User = Depends(require_auth),  # Temporarily disable auth for debugging
     session: AsyncSession = Depends(get_session)
 ):
     """Upload a file to Azure Blob Storage and store metadata in database."""
     try:
+        print(f"Upload request: cave_id={cave_id}, file={file.filename}")
+
+        # Check if user has permission to edit the cave
+        try:
+            can_edit = await _check_cave_permissions_with_retry(cave_id, user.email)
+            logger.info(f"Permission check result for cave {cave_id}, user {user.email}: {can_edit}")
+            if not can_edit:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You do not have permission to upload files to this cave"
+                )
+        except Exception as e:
+            logger.error(f"Error checking cave permissions: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to verify cave permissions"
+            )
+
         # Generate unique filename
         file_extension = file.filename.split('.')[-1] if '.' in file.filename else ''
         unique_filename = f"{uuid.uuid4()}.{file_extension}" if file_extension else str(uuid.uuid4())
@@ -59,7 +152,7 @@ async def upload_file(
             file_path=blob_url,
             file_size=len(file_content),
             content_type=file.content_type,
-            uploaded_by=uploaded_by,
+            uploaded_by="temp-user@cavemap.com",  # TEMP: hardcoded for debugging
             container_name=settings.azure_storage_container_name
         )
 
@@ -109,6 +202,15 @@ async def upload_file(
 
         # Generate download URL
         download_url = await azure_storage.get_file_url(unique_filename)
+
+        # Notify cave service that file was added
+        try:
+            await _notify_cave_service_with_retry(cave_id, media_file.id)
+            print(f"Successfully notified cave service about media file {media_file.id} for cave {cave_id}")
+        except Exception as e:
+            print(f"Failed to notify cave service about media file {media_file.id} for cave {cave_id}: {e}")
+            # Don't fail the upload if cave service notification fails
+            # The file is still uploaded and stored, just not associated with the cave yet
 
         return UploadResponse(
             media_file=MediaFileSchema.from_orm(media_file),

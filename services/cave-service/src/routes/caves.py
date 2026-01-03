@@ -1,7 +1,7 @@
 import asyncio
 from src.models.cave import Cave, Entrance, CaveMedia
 from src.schemas.cave import CaveCreate, CaveRead, UserStats, EntranceCreate, EntranceRead, MediaFileSummary
-from src.auth import User, get_current_user, require_auth
+from src.auth import User, get_current_user, require_auth, require_internal_service
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -517,6 +517,32 @@ async def get_cave(cave_id: int, session: AsyncSession = Depends(get_session), u
 
 
 # --- Update cave endpoint ---
+# --- Check if user has edit permissions for a cave ---
+@router.get("/{cave_id}/permissions/{user_email}")
+async def check_cave_permissions(
+    cave_id: int,
+    user_email: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_internal_service)
+):
+    """Check if a user has edit permissions for a cave.
+
+    Returns {"can_edit": true} if the user is the owner of the cave.
+    This is an internal service endpoint that requires service token authentication.
+    """
+    # Get the cave
+    result = await session.execute(
+        select(Cave).where(Cave.cave_id == cave_id)
+    )
+    cave = result.scalar_one_or_none()
+
+    if not cave:
+        return {"can_edit": False}
+
+    # Check if user is the cave owner
+    return {"can_edit": cave.owner_email == user_email}
+
+
 # Protected - requires authentication and ownership
 @router.put("/{cave_id}", response_model=CaveRead)
 async def update_cave(
@@ -544,7 +570,7 @@ async def update_cave(
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{GROUP_SERVICE_URL}/caves/{cave_id}/permissions/{user.email}",
+                    f"{GROUP_SERVICE_URL}/groups/{cave_id}/permissions/{user.email}",
                     timeout=5.0
                 )
                 if response.status_code == 200:
@@ -719,6 +745,42 @@ async def associate_media_with_cave(
         cave_id=cave_id,
         media_file_id=media_file_id,
         added_by=user.email
+    )
+    session.add(cave_media)
+    await session.commit()
+
+    return {"message": "Media associated with cave successfully"}
+
+
+@router.post("/{cave_id}/media/{media_file_id}/internal")
+async def associate_media_with_cave_internal(
+    cave_id: int,
+    media_file_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_internal_service)
+):
+    """Associate a media file with a cave (internal service endpoint - no permission checks)."""
+
+    # Check if cave exists
+    cave = await session.scalar(select(Cave).where(Cave.cave_id == cave_id))
+    if not cave:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
+
+    # Check if association already exists
+    existing = await session.scalar(
+        select(CaveMedia).where(
+            CaveMedia.cave_id == cave_id,
+            CaveMedia.media_file_id == media_file_id
+        )
+    )
+    if existing:
+        return {"message": "Media file is already associated with this cave"}
+
+    # Create association (no ownership check since permissions were validated by media service)
+    cave_media = CaveMedia(
+        cave_id=cave_id,
+        media_file_id=media_file_id,
+        added_by="media-service"  # Indicate this was added by the media service
     )
     session.add(cave_media)
     await session.commit()

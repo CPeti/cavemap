@@ -27,7 +27,7 @@ class User:
         self.email = email
         self.user = user or email
         self.access_token = access_token
-    
+
     def __repr__(self):
         return f"User(email={self.email})"
 
@@ -56,6 +56,7 @@ async def _verify_oauth2_auth(cookies: str, headers: dict) -> Optional[User]:
                 return User(email=email, user=user, access_token=access_token)
 
         return None
+
 
 async def verify_auth(request: Request) -> Optional[User]:
     """
@@ -92,7 +93,7 @@ async def get_current_user(request: Request) -> Optional[User]:
     """
     Dependency that returns the current user if authenticated, None otherwise.
     Use this for endpoints that work with or without auth.
-    
+
     Usage:
         @router.get("/")
         async def endpoint(user: Optional[User] = Depends(get_current_user)):
@@ -108,7 +109,7 @@ async def require_auth(request: Request) -> User:
     """
     Dependency that requires authentication.
     Returns 401 if user is not authenticated.
-    
+
     Usage:
         @router.post("/")
         async def protected_endpoint(user: User = Depends(require_auth)):
