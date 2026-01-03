@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pydantic
+sqlalchemy
+asyncpg
+alembic
+psycopg[binary]
+pydantic-settings
+httpx
+aio-pika
+tenacity
+azure-storage-blob
+azure-identity
+python-multipart

@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-service
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.mediaService.replicas }}
+  selector:
+    matchLabels:
+      app: media-service
+  template:
+    metadata:
+      labels:
+        app: media-service
+    spec:
+      initContainers:
+        # Wait for DB to be ready
+        - name: wait-for-db
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ .Values.db.name }}-rw.{{ .Values.namespace }}.svc.cluster.local -p 5432; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+
+        # Run Alembic migrations
+        - name: run-migrations
+          image: {{ .Values.mediaService.image }}
+          command:
+            - sh
+            - -c
+            - |
+              echo "Running Alembic migrations..."
+              alembic -c /app/alembic.ini upgrade head
+          env:
+            - name: DB_URL_SYNC
+              value: postgresql+psycopg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw.{{ .Values.namespace }}.svc.cluster.local:5432/{{ .Values.db.database }}
+      containers:
+        - name: media-service
+          image: {{ .Values.mediaService.image }}
+          ports:
+            - containerPort: {{ .Values.mediaService.containerPort }}
+          env:
+            - name: DB_URL
+              value: "postgresql+asyncpg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw:5432/{{ .Values.db.database }}"
+            - name: DB_URL_SYNC
+              value: "postgresql+psycopg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw:5432/{{ .Values.db.database }}"
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-secret
+                  key: service-token
+            - name: AZURE_STORAGE_ACCOUNT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: azure-storage-secret
+                  key: account-name
+            - name: AZURE_STORAGE_ACCOUNT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: azure-storage-secret
+                  key: account-key
+            - name: AZURE_STORAGE_CONTAINER_NAME
+              value: {{ .Values.mediaService.containerName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: media-service
+  ports:
+    - port: {{ .Values.mediaService.port }}
+      targetPort: {{ .Values.mediaService.containerPort }}
+      protocol: TCP
+  type: ClusterIP

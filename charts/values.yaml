@@ -35,6 +35,13 @@ groupService:
   port: 80
   containerPort: 8000
 
+mediaService:
+  image: cpeti/media-service:latest
+  replicas: 1
+  port: 80
+  containerPort: 8000
+  containerName: media-files
+
 groupDb:
   name: group-db
   user: group_user
@@ -55,6 +62,10 @@ frontend:
   replicas: 1
   port: 80
   apiBaseUrl: ""  # If empty, defaults to https://{ingress.host}
+
+azureStorage:
+  accountName: ""
+  accountKey: ""
 
 ingress:
   enabled: true
