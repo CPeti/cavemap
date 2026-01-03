@@ -1,3 +1,4 @@
+import asyncio
 from src.models.cave import Cave, Entrance
 from src.schemas.cave import CaveCreate, CaveRead, UserStats, EntranceCreate, EntranceRead
 from src.auth import User, get_current_user, require_auth
@@ -6,11 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func
+from sqlalchemy import func, delete
 from src.db.connection import get_session
 from typing import Optional
 import httpx
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -356,35 +360,34 @@ async def list_caves(
 
 
 # --- Delete all caves (TESTING ONLY) ---
-@router.delete("/delete_all", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete_all")
 async def delete_all_caves(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_auth)
 ):
-    """Delete all caves and their entrances. For testing purposes only."""
-    result = await session.execute(select(Cave))
-    caves = result.scalars().all()
+    """Delete all caves and their entrances. FOR TESTING ONLY."""
+    deleted_assignments = 0
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(
+                f"{GROUP_SERVICE_URL}/groups/caves/assignments",
+                headers={"X-Service-Token": SERVICE_TOKEN}
+            )
 
-    # Get all cave IDs before deleting
-    cave_ids = [cave.cave_id for cave in caves]
-
-    # Notify group service to delete assignments for all caves
-    for cave_id in cave_ids:
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.delete(
-                    f"{GROUP_SERVICE_URL}/groups/caves/{cave_id}/assignments",
-                    headers={"X-Service-Token": SERVICE_TOKEN}
+            if response.status_code not in (200, 204):
+                # log but don't fail the whole delete
+                logger.warning(
+                    "Failed to delete group assignments: %s",
+                    response.status_code,
                 )
-                if response.status_code not in [200, 204]:
-                    print(f"Warning: Failed to delete cave assignments for cave {cave_id}: {response.status_code}")
-        except Exception as e:
-            print(f"Warning: Error notifying group service about cave {cave_id} deletion: {e}")
+            deleted_assignments = response.json().get("deleted_assignments", 0)
+    except Exception as e:
+        logger.warning(f"Error deleting group assignments: {e}")
 
-    for cave in caves:
-        await session.delete(cave)
-
+    result = await session.execute(delete(Cave))
     await session.commit()
+    
+    return {"deleted_caves": result.rowcount, "deleted_assignments": deleted_assignments}
 
 
 # --- Get single cave endpoint ---

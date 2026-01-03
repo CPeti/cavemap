@@ -25,7 +25,11 @@ class Entrance(Base):
     __tablename__ = "entrances"
 
     entrance_id = Column(Integer, primary_key=True, index=True)
-    cave_id = Column(Integer, ForeignKey("caves.cave_id"), nullable=False)
+    cave_id = Column(
+        Integer,
+        ForeignKey("caves.cave_id", ondelete="CASCADE"),
+        nullable=False
+    )
     name = Column(String)
     gps_n: Mapped[float] = mapped_column(Float, nullable=False)
     gps_e: Mapped[float] = mapped_column(Float, nullable=False)

@@ -1,3 +1,4 @@
+from sqlalchemy import delete
 from src.models.group import Group, GroupMember, GroupCave
 from src.schemas.group import CaveAssign, CaveAssignmentRead, CaveGroupInfo, MemberRole
 from src.auth import User, require_auth, require_internal_service
@@ -204,25 +205,18 @@ async def check_cave_permissions(
 
 
 # --- Delete all assignments for a cave (called by cave service) ---
-@router.delete("/caves/{cave_id}/assignments", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/caves/{cave_id}/assignments")
 async def delete_cave_assignments(
     cave_id: int,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_internal_service)
 ):
     """Delete all cave assignments for a specific cave. Requires service authentication."""
-    # This endpoint should only be called by the cave service
-    # In a production system, you'd add additional service authentication checks
-
     result = await session.execute(
-        select(GroupCave).where(GroupCave.cave_id == cave_id)
+        delete(GroupCave).where(GroupCave.cave_id == cave_id)
     )
-    assignments = result.scalars().all()
-
-    for assignment in assignments:
-        await session.delete(assignment)
-
     await session.commit()
+    return {"deleted_assignments": result.rowcount}
 
 
 # --- Get cave inheritance candidate ---
@@ -296,3 +290,13 @@ async def get_cave_inheritance_candidate(
         "inherit_email": inherit_email
     }
 
+# --- Bulk delete assignments for all caves DEBUG ONLY ---
+@router.delete("/caves/assignments")
+async def bulk_delete_cave_assignments(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_internal_service)
+):
+    """Delete all cave assignments in the system. DEBUG ONLY."""
+    result = await session.execute(delete(GroupCave))
+    await session.commit()
+    return {"deleted_assignments": result.rowcount}
