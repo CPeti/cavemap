@@ -7,27 +7,30 @@ import asyncio
 
 from contextlib import asynccontextmanager
 from src.config.settings import settings
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
+import logging
+
+logger = logging.getLogger(__name__)
+
+@retry(
+    stop=stop_after_attempt(10),
+    wait=wait_exponential(multiplier=2, min=2, max=60),
+    retry=retry_if_exception_type(Exception),
+    before_sleep=before_sleep_log(logger, logging.WARNING)
+)
+async def init_db_with_retry():
+    """Initialize database with automatic retries using tenacity."""
+    try:
+        await init_db()
+        print("✓ Database initialized successfully")
+    except Exception as e:
+        print(f"⚠ Database connection failed: {str(e)[:100]}")
+        print(f"connecting to {getattr(settings, 'database_url', '<unknown>')}")
+        raise  # Re-raise to let tenacity handle the retry
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    max_retries = 10
-    retry_delay = 2
-
-    for attempt in range(max_retries):
-        try:
-            await init_db()
-            print("✓ Database initialized successfully")
-            break
-        except Exception as e:
-            if attempt < max_retries - 1:
-                wait_time = retry_delay * (1.5 ** attempt)
-                print(f"⚠ Database connection failed (attempt {attempt + 1}/{max_retries})")
-                print(f"connecting to {getattr(settings, 'database_url', '<unknown>')}")
-                print(f"  Retrying in {wait_time:.1f}s... Error: {str(e)[:100]}")
-                await asyncio.sleep(wait_time)
-            else:
-                print(f"✗ Failed to initialize database after {max_retries} attempts")
-                raise
+    await init_db_with_retry()
 
     # Start RabbitMQ consumer
     try:

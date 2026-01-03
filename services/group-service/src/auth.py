@@ -9,6 +9,10 @@ from fastapi import Request, HTTPException, status
 from typing import Optional
 import httpx
 import os
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import logging
+
+logger = logging.getLogger(__name__)
 
 # OAuth2 proxy internal service URL (within the cluster)
 OAUTH2_PROXY_AUTH_URL = "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
@@ -28,6 +32,31 @@ class User:
         return f"User(email={self.email})"
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _verify_oauth2_auth(cookies: str, headers: dict) -> Optional[User]:
+    """Verify OAuth2 authentication with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            OAUTH2_PROXY_AUTH_URL,
+            headers=headers,
+            timeout=5.0
+        )
+
+        if response.status_code == 202 or response.status_code == 200:
+            # User is authenticated - extract user info from response headers
+            email = response.headers.get("X-Auth-Request-Email", "")
+            user = response.headers.get("X-Auth-Request-User", "")
+            access_token = response.headers.get("X-Auth-Request-Access-Token")
+
+            if email:
+                return User(email=email, user=user, access_token=access_token)
+
+        return None
+
 async def verify_auth(request: Request) -> Optional[User]:
     """
     Verify authentication by checking service token or calling OAuth2 proxy.
@@ -43,33 +72,19 @@ async def verify_auth(request: Request) -> Optional[User]:
     cookies = request.headers.get("cookie", "")
     if not cookies:
         return None
-    
+
+    headers = {
+        "Cookie": cookies,
+        "X-Forwarded-Proto": request.headers.get("x-forwarded-proto", "https"),
+        "X-Forwarded-Host": request.headers.get("x-forwarded-host", request.headers.get("host", "")),
+        "X-Forwarded-Uri": str(request.url.path),
+    }
+
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                OAUTH2_PROXY_AUTH_URL,
-                headers={
-                    "Cookie": cookies,
-                    "X-Forwarded-Proto": request.headers.get("x-forwarded-proto", "https"),
-                    "X-Forwarded-Host": request.headers.get("x-forwarded-host", request.headers.get("host", "")),
-                    "X-Forwarded-Uri": str(request.url.path),
-                },
-                timeout=5.0
-            )
-            
-            if response.status_code == 202 or response.status_code == 200:
-                # User is authenticated - extract user info from response headers
-                email = response.headers.get("X-Auth-Request-Email", "")
-                user = response.headers.get("X-Auth-Request-User", "")
-                access_token = response.headers.get("X-Auth-Request-Access-Token")
-                
-                if email:
-                    return User(email=email, user=user, access_token=access_token)
-            
-            return None
+        return await _verify_oauth2_auth(cookies, headers)
     except Exception as e:
         # Log error but don't fail - treat as unauthenticated
-        print(f"Auth verification error: {e}")
+        logger.warning(f"Auth verification error after retries: {e}")
         return None
 
 

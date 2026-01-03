@@ -13,6 +13,7 @@ from typing import Optional
 import httpx
 import os
 import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -28,26 +29,34 @@ GROUP_SERVICE_URL = os.getenv("GROUP_SERVICE_URL", "http://group-service.default
 SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _fetch_usernames_with_retry(emails: list[str]) -> dict[str, str]:
+    """Fetch usernames from user-service with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{USER_SERVICE_URL}/users/lookup",
+            json={"emails": emails},
+            timeout=5.0
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warning(f"Failed to fetch usernames: {response.status_code}")
+            return {}
+
 async def fetch_usernames(emails: list[str]) -> dict[str, str]:
     """Fetch usernames from user-service for given emails."""
     if not emails:
         return {}
-    print(f"fetching usernames for {emails}")
+    logger.info(f"fetching usernames for {emails}")
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{USER_SERVICE_URL}/users/lookup",
-                json={"emails": emails},
-                timeout=5.0
-            )
-            print(response.text)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"Failed to fetch usernames: {response.status_code}")
-                return {}
+        return await _fetch_usernames_with_retry(emails)
     except Exception as e:
-        print(f"Error fetching usernames: {e}")
+        logger.error(f"Error fetching usernames after retries: {e}")
         return {}
 
 

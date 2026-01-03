@@ -6,6 +6,7 @@ import aio_pika
 from aio_pika import connect_robust, ExchangeType
 from src.config.settings import settings
 from src.utils.cave_deletion_handler import CaveDeletionHandler
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -63,35 +64,35 @@ class RabbitMQConsumer:
 
         await handler.handle(event_data)
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=30),
+        retry=retry_if_exception_type(Exception),
+    )
     async def connect(self):
-        """Connect to RabbitMQ"""
-        try:
-            rabbitmq_url = getattr(settings, 'rabbitmq_url', 'amqp://admin:admin123@rabbitmq.default.svc.cluster.local:5672')
-            logger.info(f"Connecting to RabbitMQ: {rabbitmq_url.replace(rabbitmq_url.split('@')[0] if '@' in rabbitmq_url else rabbitmq_url, '***:***@')}")
+        """Connect to RabbitMQ with automatic retries"""
+        rabbitmq_url = getattr(settings, 'rabbitmq_url', 'amqp://admin:admin123@rabbitmq.default.svc.cluster.local:5672')
+        logger.info(f"Connecting to RabbitMQ: {rabbitmq_url.replace(rabbitmq_url.split('@')[0] if '@' in rabbitmq_url else rabbitmq_url, '***:***@')}")
 
-            self.connection = await connect_robust(rabbitmq_url)
-            self.channel = await self.connection.channel()
+        self.connection = await connect_robust(rabbitmq_url)
+        self.channel = await self.connection.channel()
 
-            # Declare exchange
-            exchange = await self.channel.declare_exchange(
-                'user.events',
-                ExchangeType.TOPIC,
-                durable=True
-            )
+        # Declare exchange
+        exchange = await self.channel.declare_exchange(
+            'user.events',
+            ExchangeType.TOPIC,
+            durable=True
+        )
 
-            # Declare queue
-            queue = await self.channel.declare_queue('', exclusive=True)
+        # Declare queue
+        queue = await self.channel.declare_queue('', exclusive=True)
 
-            # Bind queue to exchange with routing key
-            await queue.bind(exchange, 'user.deleted')
+        # Bind queue to exchange with routing key
+        await queue.bind(exchange, 'user.deleted')
 
-            logger.info("RabbitMQ consumer connected and bound to user.events exchange")
+        logger.info("RabbitMQ consumer connected and bound to user.events exchange")
 
-            return queue
-
-        except Exception as e:
-            logger.error(f"Failed to connect to RabbitMQ: {e}")
-            raise
+        return queue
 
     async def start_consuming(self):
         """Start consuming messages"""

@@ -10,6 +10,10 @@ from sqlalchemy.future import select
 from src.db.connection import get_session
 import os
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -70,31 +74,19 @@ async def assign_cave(
     # Get cave name from cave service
     cave_name = f"Cave #{cave.cave_id}"
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{CAVE_SERVICE_URL}/caves/{cave.cave_id}",
-                headers={"X-Service-Token": SERVICE_TOKEN}
-            )
-            if response.status_code == 200:
-                cave_data = response.json()
-                cave_name = cave_data['name']
+        cave_data = await _fetch_cave_data_with_retry(cave.cave_id)
+        cave_name = cave_data['name']
     except Exception as e:
-        print(f"Error fetching cave name for {cave.cave_id}: {e}")
-        
-    
+        logger.warning(f"Error fetching cave name for {cave.cave_id} after retries: {e}")
+
+
     # fetch username for assigned_by
     username = new_assignment.assigned_by
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{USER_SERVICE_URL}/users/lookup/{new_assignment.assigned_by}",
-                headers={"X-Service-Token": SERVICE_TOKEN}
-            )
-            if response.status_code == 200:
-                user_data = response.json()
-                username = user_data['username']
+        user_data = await _fetch_username_with_retry(new_assignment.assigned_by)
+        username = user_data['username']
     except Exception as e:
-        print(f"Error fetching username for {new_assignment.assigned_by}: {e}")
+        logger.warning(f"Error fetching username for {new_assignment.assigned_by} after retries: {e}")
 
     return CaveAssignmentRead(
         id=new_assignment.id,
@@ -300,3 +292,39 @@ async def bulk_delete_cave_assignments(
     result = await session.execute(delete(GroupCave))
     await session.commit()
     return {"deleted_assignments": result.rowcount}
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _fetch_cave_data_with_retry(cave_id: int) -> dict:
+    """Fetch cave data from cave service with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{CAVE_SERVICE_URL}/caves/{cave_id}",
+            headers={"X-Service-Token": SERVICE_TOKEN}
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to fetch cave data: {response.status_code}")
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _fetch_username_with_retry(email: str) -> dict:
+    """Fetch username from user service with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{USER_SERVICE_URL}/users/lookup/{email}",
+            headers={"X-Service-Token": SERVICE_TOKEN}
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to fetch username: {response.status_code}")
