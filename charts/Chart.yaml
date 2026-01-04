@@ -4,3 +4,9 @@ description: Cavemap application with CNPG, backend, and frontend
 type: application
 version: 0.1.0
 appVersion: "1.0"
+
+dependencies:
+  - name: traefik
+    version: 38.0.1          # match repo
+    repository: https://traefik.github.io/charts
+    condition: traefik.enabled

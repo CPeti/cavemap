@@ -8,6 +8,14 @@ image:
 imagePullSecret:
   name: acr-secret
 
+traefik:
+  enabled: true
+  service:
+    type: LoadBalancer  # or ClusterIP if you have another ingress path
+  ingressClass:
+    enabled: true
+    isDefaultClass: false
+
 db:
   name: cave-db
   user: user

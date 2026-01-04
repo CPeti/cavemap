@@ -14,6 +14,4 @@ spec:
       database: {{ .Values.db.database }}
       secret:
         name: {{ .Values.db.name }}-secret
-  monitoring:
-    enabled: false
 

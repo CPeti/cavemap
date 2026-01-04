@@ -1,5 +1,6 @@
 charts/certs
 charts/values-secret.yaml
+charts/charts
 
 # Logs
 logs

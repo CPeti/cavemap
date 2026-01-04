@@ -44,12 +44,9 @@ The application was split into microservices based on domain-driven design and b
 Using helm:
 
 ```bash
-# Add Helm repos
 helm repo add cnpg https://cloudnative-pg.github.io/charts
-helm repo add traefik https://traefik.github.io/charts
-
-# Update and install/upgrade
-helm repo update && helm install traefik traefik/traefik && helm upgrade --install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg
+helm repo update && helm upgrade --install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg
 helm install cavemap ./charts -f ./charts/values.yaml -f ./charts/values-secret.yaml
 ```
 
+helm upgrade --install cavemap ./charts -f charts/values.yaml -f charts/values-secret.yaml --set cnpg.enabled=true --dependency-update
