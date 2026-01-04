@@ -220,11 +220,27 @@ async def create_entrance(
     if cave is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
 
+    # Check ownership or group permissions
     if cave.owner_email != user.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only add entrances to caves that you own"
-        )
+        # Check if user has edit permissions through group assignment
+        has_permission = False
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{GROUP_SERVICE_URL}/groups/{cave_id}/permissions/{user.email}",
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    has_permission = data.get("can_edit", False)
+        except Exception as e:
+            logger.error(f"Error checking cave permissions with group service: {e}")
+
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to add entrances to this cave. Either own the cave or be an admin/owner of its assigned group."
+            )
 
     # Create entrance
     new_entrance = Entrance(
@@ -261,11 +277,27 @@ async def update_entrance(
     if cave is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
 
+    # Check ownership or group permissions
     if cave.owner_email != user.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only modify entrances of caves that you own"
-        )
+        # Check if user has edit permissions through group assignment
+        has_permission = False
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{GROUP_SERVICE_URL}/groups/{cave_id}/permissions/{user.email}",
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    has_permission = data.get("can_edit", False)
+        except Exception as e:
+            logger.error(f"Error checking cave permissions with group service: {e}")
+
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to modify entrances of this cave. Either own the cave or be an admin/owner of its assigned group."
+            )
 
     # Get the entrance
     result = await session.execute(
@@ -309,11 +341,27 @@ async def delete_entrance(
     if cave is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
 
+    # Check ownership or group permissions
     if cave.owner_email != user.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete entrances of caves that you own"
-        )
+        # Check if user has edit permissions through group assignment
+        has_permission = False
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{GROUP_SERVICE_URL}/groups/{cave_id}/permissions/{user.email}",
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    has_permission = data.get("can_edit", False)
+        except Exception as e:
+            logger.error(f"Error checking cave permissions with group service: {e}")
+
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to delete entrances of this cave. Either own the cave or be an admin/owner of its assigned group."
+            )
 
     # Get the entrance
     result = await session.execute(
@@ -804,11 +852,27 @@ async def delete_media_from_cave(
     if not cave:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cave not found")
 
+    # Check ownership or group permissions
     if cave.owner_email != user.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete media from caves you own"
-        )
+        # Check if user has edit permissions through group assignment
+        has_permission = False
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{GROUP_SERVICE_URL}/groups/{cave_id}/permissions/{user.email}",
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    has_permission = data.get("can_edit", False)
+        except Exception as e:
+            logger.error(f"Error checking cave permissions with group service: {e}")
+
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to delete media from this cave. Either own the cave or be an admin/owner of its assigned group."
+            )
 
     # Find and delete the association
     cave_media = await session.scalar(
