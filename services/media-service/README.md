@@ -20,11 +20,6 @@ Content-Type: multipart/form-data
 file: <file_data>
 ```
 
-### List Files
-```
-GET /media/?uploaded_by=user@example.com&skip=0&limit=100
-```
-
 ### Get File Details
 ```
 GET /media/{file_id}
@@ -33,26 +28,6 @@ GET /media/{file_id}
 ### Download File
 ```
 GET /media/{file_id}/download
-```
-
-### Get Signed URL
-```
-GET /media/{file_id}/url?expiry_hours=24
-```
-
-### Update File Metadata
-```
-PUT /media/{file_id}
-{
-  "original_filename": "new_name.jpg",
-  "metadata": [
-    {
-      "key": "description",
-      "value": "A beautiful image",
-      "metadata_type": "string"
-    }
-  ]
-}
 ```
 
 ### Delete File

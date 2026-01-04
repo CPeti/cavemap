@@ -36,6 +36,9 @@ GROUP_SERVICE_URL = os.getenv("GROUP_SERVICE_URL", "http://group-service.default
 # Cave service URL
 CAVE_SERVICE_URL = os.getenv("CAVE_SERVICE_URL", "http://cave-service.default.svc.cluster.local")
 
+# User service URL
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service.default.svc.cluster.local")
+
 # Service authentication token for internal service-to-service communication
 SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
 
@@ -102,13 +105,43 @@ async def _notify_cave_service_with_retry(cave_id: int, media_file_id: int):
         )
         print(f"Cave service response: {response.json()}")
         response.raise_for_status()
+        
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)),
+)
+async def _fetch_usernames_with_retry(emails: list[str]) -> dict[str, str]:
+    """Fetch usernames from user-service with retries."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{USER_SERVICE_URL}/users/lookup",
+            json={"emails": emails},
+            timeout=5.0
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warning(f"Failed to fetch usernames: {response.status_code}")
+            return {}
+
+async def fetch_usernames(emails: list[str]) -> dict[str, str]:
+    """Fetch usernames from user-service for given emails."""
+    if not emails:
+        return {}
+    logger.info(f"fetching usernames for {emails}")
+    try:
+        return await _fetch_usernames_with_retry(emails)
+    except Exception as e:
+        logger.error(f"Error fetching usernames after retries: {e}")
+        return {}
 
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
     cave_id: int = Form(..., description="ID of the cave to associate the file with"),
-    user: User = Depends(require_auth),  # Temporarily disable auth for debugging
+    user: User = Depends(require_auth),
     session: AsyncSession = Depends(get_session)
 ):
     """Upload a file to Azure Blob Storage and store metadata in database."""
@@ -144,6 +177,9 @@ async def upload_file(
             blob_name=unique_filename,
             content_type=file.content_type
         )
+        
+        usernames_map = await fetch_usernames([user.email])
+        
 
         # Create database record
         media_file = MediaFile(
@@ -152,7 +188,7 @@ async def upload_file(
             file_path=blob_url,
             file_size=len(file_content),
             content_type=file.content_type,
-            uploaded_by="temp-user@cavemap.com",  # TEMP: hardcoded for debugging
+            uploaded_by=usernames_map.get(user.email, user.email.split('@')[0]),
             container_name=settings.azure_storage_container_name
         )
 
@@ -222,31 +258,6 @@ async def upload_file(
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
-@router.get("/", response_model=List[MediaFileList])
-async def list_files(
-    uploaded_by: Optional[str] = Query(None, description="Filter by uploader email"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    session: AsyncSession = Depends(get_session)
-):
-    """List media files with optional filtering."""
-    try:
-        query = select(MediaFile)
-
-        if uploaded_by:
-            query = query.where(MediaFile.uploaded_by == uploaded_by)
-
-        query = query.offset(skip).limit(limit).order_by(MediaFile.uploaded_at.desc())
-
-        result = await session.execute(query)
-        files = result.scalars().all()
-
-        return [MediaFileList.from_orm(file) for file in files]
-
-    except Exception as e:
-        logger.error(f"Error listing files: {e}")
-        raise HTTPException(status_code=500, detail="Failed to list files")
-
 @router.get("/{file_id}", response_model=MediaFileSchema)
 async def get_file(
     file_id: int,
@@ -300,33 +311,6 @@ async def download_file(
         logger.error(f"Error downloading file {file_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to download file")
 
-@router.get("/{file_id}/url")
-async def get_file_url(
-    file_id: int,
-    expiry_hours: int = Query(24, ge=1, le=168, description="URL expiry in hours (1-168)"),
-    session: AsyncSession = Depends(get_session)
-):
-    """Get a signed URL for direct access to the file."""
-    try:
-        # Get file metadata
-        query = select(MediaFile).where(MediaFile.id == file_id)
-        result = await session.execute(query)
-        file = result.scalar_one_or_none()
-
-        if not file:
-            raise HTTPException(status_code=404, detail="File not found")
-
-        # Generate signed URL
-        signed_url = await azure_storage.get_file_url(file.filename, expiry_hours)
-
-        return {"download_url": signed_url, "expires_in_hours": expiry_hours}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error generating URL for file {file_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate download URL")
-
 @router.delete("/{file_id}")
 async def delete_file(
     file_id: int,
@@ -357,60 +341,6 @@ async def delete_file(
         logger.error(f"Error deleting file {file_id}: {e}")
         await session.rollback()
         raise HTTPException(status_code=500, detail="Failed to delete file")
-
-@router.put("/{file_id}", response_model=MediaFileSchema)
-async def update_file(
-    file_id: int,
-    update_data: MediaFileUpdate,
-    session: AsyncSession = Depends(get_session)
-):
-    """Update file metadata."""
-    try:
-        # Get file
-        query = select(MediaFile).where(MediaFile.id == file_id)
-        result = await session.execute(query)
-        file = result.scalar_one_or_none()
-
-        if not file:
-            raise HTTPException(status_code=404, detail="File not found")
-
-        # Update fields
-        if update_data.original_filename:
-            file.original_filename = update_data.original_filename
-
-        # Update metadata if provided
-        if update_data.metadata:
-            # Remove existing metadata
-            await session.execute(
-                select(MediaMetadata).where(MediaMetadata.media_file_id == file_id).delete()
-            )
-
-            # Add new metadata
-            for metadata_data in update_data.metadata:
-                metadata = MediaMetadata(
-                    media_file_id=file_id,
-                    key=metadata_data.key,
-                    value=metadata_data.value,
-                    metadata_type=metadata_data.metadata_type
-                )
-                session.add(metadata)
-
-        await session.commit()
-        
-        # Reload with eager loading
-        query = select(MediaFile).where(MediaFile.id == file_id).options(selectinload(MediaFile.file_metadata))
-        result = await session.execute(query)
-        file = result.scalar_one()
-
-        return MediaFileSchema.from_orm(file)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating file {file_id}: {e}")
-        await session.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update file")
-
 
 @router.post("/batch", response_model=List[dict])
 async def get_media_batch(
