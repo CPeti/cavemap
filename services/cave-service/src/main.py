@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.routes import caves
 from src.db.connection import init_db
 from src.utils.rabbitmq_consumer import start_rabbitmq_consumer, stop_rabbitmq_consumer
+from src.utils.rabbitmq_publisher import publisher
 import asyncio
 
 from contextlib import asynccontextmanager
@@ -40,6 +41,14 @@ async def lifespan(app: FastAPI):
         print(f"⚠ Failed to start RabbitMQ consumer: {str(e)[:100]}")
         # Don't fail startup if RabbitMQ is not available
 
+    # Initialize RabbitMQ publisher
+    try:
+        await publisher.connect()
+        print("✓ RabbitMQ publisher initialized successfully")
+    except Exception as e:
+        print(f"⚠ Failed to initialize RabbitMQ publisher: {str(e)[:100]}")
+        # Don't fail startup if RabbitMQ is not available
+
     yield
 
     # Stop RabbitMQ consumer on shutdown
@@ -48,6 +57,13 @@ async def lifespan(app: FastAPI):
         print("✓ RabbitMQ consumer stopped successfully")
     except Exception as e:
         print(f"⚠ Error stopping RabbitMQ consumer: {str(e)[:100]}")
+
+    # Close RabbitMQ publisher on shutdown
+    try:
+        await publisher.close()
+        print("✓ RabbitMQ publisher closed successfully")
+    except Exception as e:
+        print(f"⚠ Error closing RabbitMQ publisher: {str(e)[:100]}")
 
 app = FastAPI(
     title="Cave Database API", 

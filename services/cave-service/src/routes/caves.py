@@ -2,6 +2,7 @@ import asyncio
 from src.models.cave import Cave, Entrance, CaveMedia
 from src.schemas.cave import CaveCreate, CaveRead, UserStats, EntranceCreate, EntranceRead, MediaFileSummary
 from src.auth import User, get_current_user, require_auth, require_internal_service
+from src.utils.cave_operations import delete_cave_by_id
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -716,21 +717,13 @@ async def delete_cave(
             detail="You can only delete caves that you own"
         )
 
-    # Notify group service to delete cave assignments
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.delete(
-                f"{GROUP_SERVICE_URL}/groups/caves/{cave_id}/assignments",
-                headers={"X-Service-Token": SERVICE_TOKEN}
-            )
-            if response.status_code not in [200, 204]:
-                print(f"Warning: Failed to delete cave assignments from group service: {response.status_code}")
-    except Exception as e:
-        print(f"Warning: Error notifying group service about cave deletion: {e}")
-
-    # Delete the cave (entrances will be cascade deleted due to relationship)
-    await session.delete(cave)
-    await session.commit()
+    # Use the shared deletion function
+    success = await delete_cave_by_id(session, cave_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete cave"
+        )
 
 
 # --- Associate media with cave endpoint ---

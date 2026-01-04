@@ -1,15 +1,15 @@
 import asyncio
 import json
 import logging
-from typing import Optional, Dict, Any, Callable, Awaitable
+from typing import Optional, Dict, Any
 import aio_pika
 from aio_pika import connect_robust, ExchangeType
 from src.config.settings import settings
-from src.utils.user_deletion_handler import UserDeletionHandler
 from src.utils.cave_deletion_handler import CaveDeletionHandler
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
+
 
 class MessageHandler:
     """Base class for message handlers"""
@@ -17,23 +17,6 @@ class MessageHandler:
     async def handle(self, event_data: Dict[str, Any]) -> None:
         """Handle the message. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement handle method")
-
-
-class UserDeletionMessageHandler(MessageHandler):
-    """Handler for user deletion events"""
-
-    def __init__(self):
-        self.deletion_handler = UserDeletionHandler()
-
-    async def handle(self, event_data: Dict[str, Any]) -> None:
-        """Handle user deletion event"""
-        user_email = event_data.get('email')
-        user_id = event_data.get('userId')
-
-        if not user_email:
-            raise ValueError("User deletion event missing email field")
-
-        await self.deletion_handler.handle_user_deletion(user_email, user_id)
 
 
 class CaveDeletionMessageHandler(MessageHandler):
@@ -47,11 +30,12 @@ class CaveDeletionMessageHandler(MessageHandler):
         cave_id = event_data.get('caveId')
         cave_name = event_data.get('caveName', 'Unknown')
         owner_email = event_data.get('ownerEmail')
+        media_file_ids = event_data.get('mediaFileIds', [])
 
         if not cave_id:
             raise ValueError("Cave deletion event missing caveId field")
 
-        await self.deletion_handler.handle_cave_deletion(cave_id, cave_name, owner_email)
+        await self.deletion_handler.handle_cave_deletion(cave_id, cave_name, owner_email, media_file_ids)
 
 
 class RabbitMQConsumer:
@@ -67,7 +51,6 @@ class RabbitMQConsumer:
 
     def _register_handlers(self):
         """Register message handlers for different event types"""
-        self.message_handlers['user.deleted'] = UserDeletionMessageHandler()
         self.message_handlers['cave.deleted'] = CaveDeletionMessageHandler()
 
     def register_handler(self, event_type: str, handler: MessageHandler):
@@ -94,31 +77,24 @@ class RabbitMQConsumer:
         """Connect to RabbitMQ with automatic retries"""
         rabbitmq_url = getattr(settings, 'rabbitmq_url', 'amqp://admin:admin123@rabbitmq.default.svc.cluster.local:5672')
         logger.info(f"Connecting to RabbitMQ: {rabbitmq_url.replace(rabbitmq_url.split('@')[0] if '@' in rabbitmq_url else rabbitmq_url, '***:***@')}")
-        print(f"Connecting to RabbitMQ: {rabbitmq_url}")
+
         self.connection = await connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
 
-        # Declare queue
-        queue = await self.channel.declare_queue('', exclusive=True)
-
-        # Bind to user.events exchange
-        user_exchange = await self.channel.declare_exchange(
-            'user.events',
-            ExchangeType.TOPIC,
-            durable=True
-        )
-        await queue.bind(user_exchange, 'user.deleted')
-
-        # Bind to cave.events exchange
-        cave_exchange = await self.channel.declare_exchange(
+        # Declare exchange
+        exchange = await self.channel.declare_exchange(
             'cave.events',
             ExchangeType.TOPIC,
             durable=True
         )
-        await queue.bind(cave_exchange, 'cave.deleted')
 
-        logger.info("RabbitMQ consumer connected and bound to user.events and cave.events exchanges")
-        print("RabbitMQ consumer connected and bound to user.events and cave.events exchanges")
+        # Declare queue
+        queue = await self.channel.declare_queue('', exclusive=True)
+
+        # Bind queue to exchange with routing key
+        await queue.bind(exchange, 'cave.deleted')
+
+        logger.info("RabbitMQ consumer connected and bound to cave.events exchange")
 
         return queue
 
@@ -131,7 +107,7 @@ class RabbitMQConsumer:
             self.consumer_tag = await queue.consume(self._on_message)
             self.is_running = True
 
-            logger.info("Started consuming user deletion and cave deletion messages")
+            logger.info("Started consuming cave deletion messages")
 
         except Exception as e:
             logger.error(f"Failed to start consuming: {e}")
@@ -173,15 +149,17 @@ class RabbitMQConsumer:
         event_type = event_data.get('event', 'unknown')
 
         print("=" * 60)
-        print(f"🎯 GROUP SERVICE - {event_type.upper().replace('.', ' ')} EVENT RECEIVED")
+        print(f"🎯 MEDIA SERVICE - {event_type.upper().replace('.', ' ')} EVENT RECEIVED")
         print("=" * 60)
 
         # Log common fields
-        common_fields = ['event', 'userId', 'email', 'username', 'deletedAt', 'timestamp',
-                        'caveId', 'caveName', 'ownerEmail']
+        common_fields = ['event', 'caveId', 'caveName', 'ownerEmail', 'mediaFileIds', 'timestamp']
         for field in common_fields:
             if field in event_data:
-                print(f"{field.capitalize()}: {event_data[field]}")
+                if field == 'mediaFileIds':
+                    print(f"{field.capitalize()}: {len(event_data[field])} files")
+                else:
+                    print(f"{field.capitalize()}: {event_data[field]}")
 
         print("=" * 60)
 

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.routes import media
 from src.db.connection import init_db
 from src.utils.azure_storage import azure_storage
+from src.utils.rabbitmq_consumer import start_rabbitmq_consumer, stop_rabbitmq_consumer
 import asyncio
 
 from contextlib import asynccontextmanager
@@ -42,7 +43,22 @@ async def lifespan(app: FastAPI):
     await init_db_with_retry()
     await init_azure_storage()
 
+    # Start RabbitMQ consumer
+    try:
+        await start_rabbitmq_consumer()
+        print("✓ RabbitMQ consumer started successfully")
+    except Exception as e:
+        print(f"⚠ Failed to start RabbitMQ consumer: {str(e)[:100]}")
+        # Don't fail startup if RabbitMQ is not available
+
     yield
+
+    # Stop RabbitMQ consumer on shutdown
+    try:
+        await stop_rabbitmq_consumer()
+        print("✓ RabbitMQ consumer stopped successfully")
+    except Exception as e:
+        print(f"⚠ Error stopping RabbitMQ consumer: {str(e)[:100]}")
 
     print("✓ Application shutdown complete")
 
