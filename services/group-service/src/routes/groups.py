@@ -1,4 +1,4 @@
-from src.models.group import Group, GroupMember, GroupApplication, GroupInvitation, MemberRole as DBMemberRole, JoinPolicy as DBJoinPolicy, ApplicationStatus as DBApplicationStatus
+from src.models.group import Group, GroupMember, GroupApplication, GroupInvitation, GroupCave, MemberRole as DBMemberRole, JoinPolicy as DBJoinPolicy, ApplicationStatus as DBApplicationStatus
 from src.schemas.group import (
     GroupCreate, GroupRead, GroupUpdate, GroupSummary, GroupPublic,
     MemberRole, JoinPolicy
@@ -475,6 +475,11 @@ async def delete_group(
     # Remove any invitations tied to this group so they don't linger after deletion
     await session.execute(
         delete(GroupInvitation).where(GroupInvitation.group_id == group_id)
+    )
+
+    # Remove all cave assignments for this group
+    await session.execute(
+        delete(GroupCave).where(GroupCave.group_id == group_id)
     )
 
     await session.commit()
