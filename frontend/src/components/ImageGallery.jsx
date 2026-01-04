@@ -16,6 +16,7 @@ const ImageGallery = ({
 }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isFullResolutionOpen, setIsFullResolutionOpen] = useState(false);
+    const [loadingStates, setLoadingStates] = useState({});
     const modalRef = useRef(null);
 
     const goToPrevious = () => {
@@ -42,6 +43,14 @@ const ImageGallery = ({
         if (e.key === "Escape") {
             closeFullResolution();
         }
+    };
+
+    const handleImageLoad = (imageId) => {
+        setLoadingStates(prev => ({ ...prev, [imageId]: false }));
+    };
+
+    const handleImageLoadStart = (imageId) => {
+        setLoadingStates(prev => ({ ...prev, [imageId]: true }));
     };
 
     useEffect(() => {
@@ -97,12 +106,23 @@ const ImageGallery = ({
                         )}
 
                         {/* Large image */}
-                        <div className="aspect-video bg-slate-700 rounded-lg overflow-hidden cursor-pointer" onClick={openFullResolution}>
+                        <div className="relative bg-slate-700 rounded-lg overflow-hidden cursor-pointer max-h-96 flex items-center justify-center min-h-[200px]" onClick={openFullResolution}>
+                            {loadingStates[images[currentImageIndex].id] && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-400"></div>
+                                </div>
+                            )}
                             <img
+                                key={images[currentImageIndex].id}
                                 src={getApiUrl(`/media/${images[currentImageIndex].id}/image`)}
                                 alt={images[currentImageIndex].original_filename}
-                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                                className={`max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-200 ${loadingStates[images[currentImageIndex].id] ? 'opacity-0' : 'opacity-100'}`}
+                                style={{ maxHeight: '384px' }}
+                                loading="lazy"
+                                onLoadStart={() => handleImageLoadStart(images[currentImageIndex].id)}
+                                onLoad={() => handleImageLoad(images[currentImageIndex].id)}
                                 onError={(e) => {
+                                    handleImageLoad(images[currentImageIndex].id);
                                     e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDMTMuMSAyIDE0IDIuOSAxNCA0VjE2QzE0IDE3LjEgMTMuMSAxOCA4IDE4QzYuOSAxOCA2IDE3LjEgNiAxNlY0QzYgMi45IDYuOSAyIDggMkg5QzEwLjEgMiAxMSAyLjkgMTEgNFYxNkgxMkMxMy4xIDE2IDE0IDE1LjEgMTQgMTNIMTZWMTRIMThDMjAuMSAxMiAyMiAxMC4xIDIyIDhWNUMyMiAzLjkgMjAuMSAyIDE4IDJIMTJ6IiBmaWxsPSIjOWNhM2FmIi8+Cjwvc3ZnPgo=';
                                 }}
                             />
@@ -125,16 +145,29 @@ const ImageGallery = ({
                             </div>
                         </div>
 
-                        {/* Remove button for editors */}
-                        {canEdit && (
-                            <button
-                                onClick={() => onRemoveImage(images[currentImageIndex].id)}
-                                className="absolute top-2 right-2 z-10 bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full transition-colors"
-                                title="Remove image"
+                        {/* Action buttons for editors */}
+                        <div className="absolute top-2 right-2 z-10 flex gap-2">
+                            <a
+                                href={getApiUrl(`/media/${images[currentImageIndex].id}/download`)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-slate-600/80 hover:bg-slate-500 text-white p-2 rounded-full transition-colors"
+                                title="Download image"
                             >
-                                <XMarkIcon className="w-4 h-4" />
-                            </button>
-                        )}
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </a>
+                            {canEdit && (
+                                <button
+                                    onClick={() => onRemoveImage(images[currentImageIndex].id)}
+                                    className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full transition-colors"
+                                    title="Remove image"
+                                >
+                                    <XMarkIcon className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Thumbnail navigation */}
@@ -150,18 +183,27 @@ const ImageGallery = ({
                                 <button
                                     key={image.id}
                                     onClick={() => setCurrentImageIndex(index)}
-                                    className={`flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all ${
+                                    className={`flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all relative ${
                                         index === currentImageIndex
                                             ? 'border-teal-400 ring-2 ring-teal-400/20'
                                             : 'border-slate-600 hover:border-slate-400'
                                     }`}
                                     title={image.original_filename}
                                 >
+                                    {loadingStates[image.id] && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-400"></div>
+                                        </div>
+                                    )}
                                     <img
                                         src={getApiUrl(`/media/${image.id}/image`)}
                                         alt=""
-                                        className="w-full h-full object-cover"
+                                        className={`w-full h-full object-cover transition-opacity duration-200 ${loadingStates[image.id] ? 'opacity-0' : 'opacity-100'}`}
+                                        loading="lazy"
+                                        onLoadStart={() => handleImageLoadStart(image.id)}
+                                        onLoad={() => handleImageLoad(image.id)}
                                         onError={(e) => {
+                                            handleImageLoad(image.id);
                                             e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDMTMuMSAyIDE0IDIuOSAxNCA0VjE2QzE0IDE3LjEgMTMuMSAxOCA4IDE4QzYuOSAxOCA2IDE3LjEgNiAxNlY0QzYgMi45IDYuOSAyIDggMkg5QzEwLjEgMiAxMSAyLjkgMTEgNFYxNkgxMkMxMy4xIDE2IDE0IDE1LjEgMTQgMTNIMTZWMTRIMThDMjAuMSAxMiAyMiAxMC4xIDIyIDhWNUMyMiAzLjkgMjAuMSAyIDE4IDJIMTJ6IiBmaWxsPSIjOWNhM2FmIi8+Cjwvc3ZnPgo=';
                                         }}
                                     />
@@ -191,7 +233,7 @@ const ImageGallery = ({
         {isFullResolutionOpen && (
             <div
                 ref={modalRef}
-                className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center"
+                className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col"
                 onClick={closeFullResolution}
                 onKeyDown={handleKeyDown}
                 tabIndex={0}
@@ -229,13 +271,27 @@ const ImageGallery = ({
                 )}
 
                 {/* Full resolution image */}
-                <div className="max-w-full max-h-full p-4">
+                <div className="flex-1 p-4 flex items-center justify-center min-h-0 overflow-hidden">
+                    {loadingStates[`modal-${images[currentImageIndex].id}`] && (
+                        <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-400"></div>
+                        </div>
+                    )}
                     <img
+                        key={`modal-${images[currentImageIndex].id}`}
                         src={getApiUrl(`/media/${images[currentImageIndex].id}/image`)}
                         alt={images[currentImageIndex].original_filename}
-                        className="max-w-full max-h-full object-contain rounded-lg"
+                        className={`max-w-full max-h-full object-contain rounded-lg transition-opacity duration-200 ${loadingStates[`modal-${images[currentImageIndex].id}`] ? 'opacity-0' : 'opacity-100'}`}
+                        style={{
+                            maxWidth: '90vw',
+                            maxHeight: 'calc(100vh - 120px)' // Account for header/footer space
+                        }}
+                        loading="lazy"
+                        onLoadStart={() => handleImageLoadStart(`modal-${images[currentImageIndex].id}`)}
+                        onLoad={() => handleImageLoad(`modal-${images[currentImageIndex].id}`)}
                         onClick={(e) => e.stopPropagation()}
                         onError={(e) => {
+                            handleImageLoad(`modal-${images[currentImageIndex].id}`);
                             e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDMTMuMSAyIDE0IDIuOSAxNCA0VjE2QzE0IDE3LjEgMTMuMSAxOCA4IDE4QzYuOSAxOCA2IDE3LjEgNiAxNlY0QzYgMi45IDYuOSAyIDggMkg5QzEwLjEgMiAxMSAyLjkgMTEgNFYxNkgxMkMxMy4xIDE2IDE0IDE1LjEgMTQgMTNIMTZWMTRIMThDMjAuMSAxMiAyMiAxMC4xIDIyIDhWNUMyMiAzLjkgMjAuMSAyIDE4IDJIMTJ6IiBmaWxsPSIjOWNhM2FmIi8+Cjwvc3ZnPgo=';
                         }}
                     />

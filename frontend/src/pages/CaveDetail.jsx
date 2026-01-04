@@ -93,8 +93,64 @@ export default function CaveDetail() {
     const [mediaFiles, setMediaFiles] = useState([]);
     const [uploadingMedia, setUploadingMedia] = useState(false);
     const [showMediaUpload, setShowMediaUpload] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [isDragOver, setIsDragOver] = useState(false);
 
     const canEdit = cave && (cave.is_owner || hasGroupEditPermission);
+
+    // Drag and drop handlers
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            setSelectedFiles(prev => [...prev, ...files]);
+        }
+    };
+
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            setSelectedFiles(prev => [...prev, ...files]);
+        }
+        // Clear the input so the same file can be selected again if needed
+        e.target.value = '';
+    };
+
+    const removeSelectedFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const confirmUpload = async () => {
+        if (selectedFiles.length === 0) return;
+
+        setUploadingMedia(true);
+        try {
+            await handleFileUpload(selectedFiles);
+            setSelectedFiles([]);
+            setShowMediaUpload(false);
+        } catch (error) {
+            console.error('Upload failed:', error);
+        } finally {
+            setUploadingMedia(false);
+        }
+    };
+
+    const cancelUpload = () => {
+        setSelectedFiles([]);
+        setShowMediaUpload(false);
+    };
 
     // Fetch current user email for permission checks
     useEffect(() => {
@@ -939,16 +995,24 @@ export default function CaveDetail() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {media.download_url && (
-                                                            <a
-                                                                href={media.download_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
-                                                            >
-                                                                Download
-                                                            </a>
-                                                        )}
+                                                        <a
+                                                            href={media.download_url || "#"}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className={`text-xs transition-colors ${
+                                                                media.download_url
+                                                                    ? "text-teal-400 hover:text-teal-300"
+                                                                    : "text-slate-500 cursor-not-allowed opacity-50"
+                                                            }`}
+                                                            onClick={(e) => {
+                                                                if (!media.download_url) {
+                                                                    e.preventDefault();
+                                                                    alert("Download URL not available. Please try refreshing the page.");
+                                                                }
+                                                            }}
+                                                        >
+                                                            Download
+                                                        </a>
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleRemoveMedia(media.id)}
@@ -1467,13 +1531,15 @@ export default function CaveDetail() {
             {/* Media Upload Modal */}
             {showMediaUpload && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMediaUpload(false)} />
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={cancelUpload} />
 
                     <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-semibold text-white">Upload Media</h2>
+                            <h2 className="text-xl font-semibold text-white">
+                                Upload Media {selectedFiles.length > 0 && `(${selectedFiles.length} selected)`}
+                            </h2>
                             <button
-                                onClick={() => setShowMediaUpload(false)}
+                                onClick={cancelUpload}
                                 className="text-slate-400 hover:text-white transition-colors"
                             >
                                 <XMarkIcon className="w-6 h-6" />
@@ -1485,16 +1551,28 @@ export default function CaveDetail() {
                                 <label className="block text-sm font-medium text-slate-400 mb-2">
                                     Select Files
                                 </label>
-                                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
+                                <div
+                                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                                        isDragOver
+                                            ? 'border-teal-400 bg-teal-500/10'
+                                            : 'border-slate-600'
+                                    }`}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                >
                                     <PhotoIcon className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                                <p className="text-sm text-slate-500 mb-4">
-                                    Drag and drop images and files here, or click to browse
-                                </p>
+                                    <p className="text-sm text-slate-500 mb-4">
+                                        {isDragOver
+                                            ? 'Drop files here'
+                                            : 'Drag and drop images and files here, or click to browse'
+                                        }
+                                    </p>
                                     <input
                                         type="file"
                                         multiple
                                         accept="image/*,video/*,audio/*,application/pdf,text/*"
-                                        onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+                                        onChange={handleFileSelect}
                                         className="hidden"
                                         id="media-upload"
                                         disabled={uploadingMedia}
@@ -1503,17 +1581,8 @@ export default function CaveDetail() {
                                         htmlFor="media-upload"
                                         className="inline-flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {uploadingMedia ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                Uploading...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <PlusIcon className="w-4 h-4" />
-                                                Choose Files
-                                            </>
-                                        )}
+                                        <PlusIcon className="w-4 h-4" />
+                                        Choose Files
                                     </label>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-2">
@@ -1521,12 +1590,59 @@ export default function CaveDetail() {
                                 </p>
                             </div>
 
+                            {/* Selected files list */}
+                            {selectedFiles.length > 0 && (
+                                <div>
+                                    <h3 className="text-sm font-medium text-slate-400 mb-2">
+                                        Selected Files ({selectedFiles.length})
+                                    </h3>
+                                    <div className="max-h-32 overflow-y-auto space-y-2">
+                                        {selectedFiles.map((file, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-slate-700/50 rounded-lg p-2">
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <PhotoIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                                    <span className="text-sm text-white truncate">{file.name}</span>
+                                                    <span className="text-xs text-slate-500 flex-shrink-0">
+                                                        ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeSelectedFile(index)}
+                                                    className="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0"
+                                                    title="Remove file"
+                                                >
+                                                    <XMarkIcon className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex gap-3 pt-2">
                                 <button
-                                    onClick={() => setShowMediaUpload(false)}
+                                    onClick={cancelUpload}
                                     className="flex-1 bg-slate-700 text-white font-medium px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors"
+                                    disabled={uploadingMedia}
                                 >
                                     Cancel
+                                </button>
+                                <button
+                                    onClick={confirmUpload}
+                                    disabled={selectedFiles.length === 0 || uploadingMedia}
+                                    className="flex-1 bg-teal-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-teal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {uploadingMedia ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Uploading...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <PlusIcon className="w-4 h-4" />
+                                            Upload {selectedFiles.length > 0 && `(${selectedFiles.length})`}
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
