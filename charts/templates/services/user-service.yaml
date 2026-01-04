@@ -42,8 +42,16 @@ spec:
                 secretKeyRef:
                   name: service-secret
                   key: service-token
+            - name: OAUTH2_PROXY_AUTH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: service-urls
+                  key: OAUTH2_PROXY_AUTH_URL
             - name: RABBITMQ_URL
-              value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.name }}.{{ .Values.namespace }}.svc.cluster.local:5672"
+              valueFrom:
+                configMapKeyRef:
+                  name: service-urls
+                  key: RABBITMQ_URL
           livenessProbe:
             httpGet:
               path: /health

@@ -1,0 +1,21 @@
+{{- $ns := .Values.namespace | default "default" }}
+{{- $apiBase := default (default (printf "https://%s" .Values.ingress.host) .Values.frontend.apiBaseUrl) .Values.serviceUrls.apiBase }}
+{{- $caveUrl := default (printf "http://cave-service.%s.svc.cluster.local" $ns) .Values.serviceUrls.caveService }}
+{{- $groupUrl := default (printf "http://group-service.%s.svc.cluster.local" $ns) .Values.serviceUrls.groupService }}
+{{- $userUrl := default (printf "http://user-service.%s.svc.cluster.local" $ns) .Values.serviceUrls.userService }}
+{{- $mediaUrl := default (printf "http://media-service.%s.svc.cluster.local" $ns) .Values.serviceUrls.mediaService }}
+{{- $rabbitUrl := default (printf "amqp://%s:%s@%s.%s.svc.cluster.local:5672" .Values.rabbitmq.user .Values.rabbitmq.password .Values.rabbitmq.name $ns) .Values.serviceUrls.rabbitmq }}
+{{- $oauth2Auth := default (printf "http://oauth2-proxy.%s.svc.cluster.local:4180/oauth2/auth" $ns) .Values.serviceUrls.oauth2ProxyAuth }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-urls
+  namespace: {{ .Values.namespace }}
+data:
+  API_BASE_URL: {{ $apiBase | quote }}
+  CAVE_SERVICE_URL: {{ $caveUrl | quote }}
+  GROUP_SERVICE_URL: {{ $groupUrl | quote }}
+  USER_SERVICE_URL: {{ $userUrl | quote }}
+  MEDIA_SERVICE_URL: {{ $mediaUrl | quote }}
+  RABBITMQ_URL: {{ $rabbitUrl | quote }}
+  OAUTH2_PROXY_AUTH_URL: {{ $oauth2Auth | quote }}

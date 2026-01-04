@@ -74,3 +74,12 @@ ingress:
   className: traefik
   host: localhost.me
   tlsSecret: frontend-cert
+
+serviceUrls:
+  apiBase: ""
+  caveService: ""
+  groupService: ""
+  userService: ""
+  mediaService: ""
+  rabbitmq: ""
+  oauth2ProxyAuth: ""

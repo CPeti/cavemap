@@ -20,7 +20,10 @@ spec:
             - containerPort: {{ .Values.frontend.port }}
           env:
             - name: API_BASE_URL
-              value: {{ .Values.frontend.apiBaseUrl | default (printf "https://%s" .Values.ingress.host) | quote }}
+              valueFrom:
+                configMapKeyRef:
+                  name: service-urls
+                  key: API_BASE_URL
 ---
 apiVersion: v1
 kind: Service

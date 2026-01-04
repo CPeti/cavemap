@@ -2,7 +2,7 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 
 // OAuth2 proxy internal service URL (within the cluster)
-const OAUTH2_PROXY_AUTH_URL = process.env.OAUTH2_PROXY_URL || 'http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth';
+const OAUTH2_PROXY_AUTH_URL = process.env.OAUTH2_PROXY_AUTH_URL || 'http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth';
 
 // Middleware to authenticate via OAuth2 proxy
 const authenticateToken = async (req, res, next) => {

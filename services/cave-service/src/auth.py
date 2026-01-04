@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # OAuth2 proxy internal service URL (within the cluster)
-OAUTH2_PROXY_AUTH_URL = "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
+OAUTH2_PROXY_AUTH_URL = os.getenv("OAUTH2_PROXY_AUTH_URL", "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth")
 
 # Service authentication token for internal service-to-service communication
 SERVICE_TOKEN = os.getenv("SERVICE_TOKEN", "dev-service-token-123")
