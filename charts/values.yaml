@@ -1,5 +1,13 @@
 namespace: default
 
+image:
+  registry: cavedbacr.azurecr.io
+  pullPolicy: Always
+  tag: latest
+
+imagePullSecret:
+  name: acr-secret
+
 db:
   name: cave-db
   user: user
@@ -17,26 +25,34 @@ mongodb:
   replicas: 1
 
 caveService:
-  image: cpeti/cave-service:latest
+  repository: cave-service
+  tag: ""
+  image: ""
   replicas: 1
   port: 80
   containerPort: 8000
 
 userService:
-  image: cpeti/user-service:latest
+  repository: user-service
+  tag: ""
+  image: ""
   replicas: 1
   port: 80
   containerPort: 3002
   nodeEnv: production
 
 groupService:
-  image: cpeti/group-service:latest
+  repository: group-service
+  tag: ""
+  image: ""
   replicas: 1
   port: 80
   containerPort: 8000
 
 mediaService:
-  image: cpeti/media-service:latest
+  repository: media-service
+  tag: ""
+  image: ""
   replicas: 1
   port: 80
   containerPort: 8000
@@ -58,7 +74,9 @@ rabbitmq:
   replicas: 1
 
 frontend:
-  image: cpeti/cave-frontend:latest
+  repository: cave-frontend
+  tag: ""
+  image: ""
   replicas: 1
   port: 80
   apiBaseUrl: ""  # If empty, defaults to https://{ingress.host}

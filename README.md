@@ -50,6 +50,6 @@ helm repo add traefik https://traefik.github.io/charts
 
 # Update and install/upgrade
 helm repo update && helm install traefik traefik/traefik && helm upgrade --install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg
-helm install cavemap ./charts
+helm install cavemap ./charts -f ./charts/values.yaml -f ./charts/values-secret.yaml
 ```
 

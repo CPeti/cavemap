@@ -3,6 +3,12 @@ kind: Deployment
 metadata:
   name: cave-service
   namespace: {{ .Values.namespace }}
+{{- $registry := .Values.image.registry | default "" }}
+{{- $globalTag := .Values.image.tag | default "latest" }}
+{{- $svcRepo := .Values.caveService.repository | default "cave-service" }}
+{{- $svcTag := default $globalTag .Values.caveService.tag }}
+{{- $svcImage := .Values.caveService.image | default "" }}
+{{- $image := ternary $svcImage (printf "%s/%s:%s" $registry $svcRepo $svcTag) (ne $svcImage "") }}
 spec:
   replicas: {{ .Values.caveService.replicas }}
   selector:
@@ -13,6 +19,8 @@ spec:
       labels:
         app: cave-service
     spec:
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.name }}
       initContainers:
         # Wait for DB to be ready
         - name: wait-for-db
@@ -28,7 +36,8 @@ spec:
 
         # Run Alembic migrations
         - name: run-migrations
-          image: {{ .Values.caveService.image }}
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - sh
             - -c
@@ -40,7 +49,8 @@ spec:
               value: postgresql+psycopg://{{ .Values.db.user }}:{{ .Values.db.password }}@{{ .Values.db.name }}-rw.{{ .Values.namespace }}.svc.cluster.local:5432/{{ .Values.db.database }}
       containers:
         - name: cave-service
-          image: {{ .Values.caveService.image }}
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.caveService.containerPort }}
           env:

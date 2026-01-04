@@ -3,6 +3,12 @@ kind: Deployment
 metadata:
   name: frontend
   namespace: {{ .Values.namespace }}
+{{- $registry := .Values.image.registry | default "" }}
+{{- $globalTag := .Values.image.tag | default "latest" }}
+{{- $svcRepo := .Values.frontend.repository | default "cave-frontend" }}
+{{- $svcTag := default $globalTag .Values.frontend.tag }}
+{{- $svcImage := .Values.frontend.image | default "" }}
+{{- $image := ternary $svcImage (printf "%s/%s:%s" $registry $svcRepo $svcTag) (ne $svcImage "") }}
 spec:
   replicas: {{ .Values.frontend.replicas }}
   selector:
@@ -13,9 +19,12 @@ spec:
       labels:
         app: frontend
     spec:
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.name }}
       containers:
         - name: frontend
-          image: {{ .Values.frontend.image }}
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.frontend.port }}
           env:
