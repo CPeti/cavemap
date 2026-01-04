@@ -192,7 +192,7 @@ const CaveTable = ({ caves = [] }) => {
                                     <div className="flex flex-col items-center space-y-3">
                                         <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center">
                                             <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m0 0v-2a2 2 0 012-2h2a2 2 0 012 2v2M6 11h8" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2L2 22h20L12 2z" />
                                             </svg>
                                         </div>
                                         <div>
