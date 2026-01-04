@@ -22,14 +22,37 @@ body {
     height: -webkit-fill-available;
     overflow: auto;
     overscroll-behavior: none;
-    
-    /* Hide scrollbar */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
 }
 
+/* Custom scrollbar styling - positioned below navbar */
 #root::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    width: 8px;
+    height: 8px;
+}
+
+#root::-webkit-scrollbar-track {
+    background: #0f172a; /* slate-900 */
+    border-radius: 4px;
+}
+
+#root::-webkit-scrollbar-thumb {
+    background: #334155; /* slate-700 */
+    border-radius: 4px;
+    border: 1px solid #0f172a; /* slate-900 */
+}
+
+#root::-webkit-scrollbar-thumb:hover {
+    background: #475569; /* slate-600 */
+}
+
+#root::-webkit-scrollbar-thumb:active {
+    background: #64748b; /* slate-500 */
+}
+
+/* Firefox scrollbar styling */
+#root {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 #0f172a; /* thumb track */
 }
 
 /* Additional mobile Safari fixes */
