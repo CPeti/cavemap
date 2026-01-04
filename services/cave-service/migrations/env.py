@@ -21,7 +21,7 @@ if config.config_file_name is not None:
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.models.base import Base
-from src.models.cave import Cave, Entrance
+from src.models.cave import Cave, Entrance, CaveMedia
 target_metadata = Base.metadata
 
 
