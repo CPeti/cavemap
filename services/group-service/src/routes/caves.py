@@ -36,7 +36,16 @@ async def assign_cave(
     """Assign a cave to this group. Requires admin privileges."""
     await get_group_or_404(session, group_id)
     await require_group_admin(session, group_id, user.email)
-    
+
+    # Check if cave exists
+    try:
+        await _fetch_cave_data_with_retry(cave.cave_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cave does not exist"
+        )
+
     # Check if cave is already assigned to this group
     result = await session.execute(
         select(GroupCave).where(
