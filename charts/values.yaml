@@ -2,7 +2,7 @@ namespace: default
 
 image:
   registry: cavedbacr.azurecr.io
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
   tag: latest
 
 imagePullSecret:
