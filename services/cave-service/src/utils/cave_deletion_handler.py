@@ -131,6 +131,6 @@ async def _delete_assignments_with_retry(cave_id: int):
     """Delete cave assignments with retries."""
     async with httpx.AsyncClient() as client:
         return await client.delete(
-            f"{GROUP_SERVICE_URL}/caves/{cave_id}/assignments",
+            f"{GROUP_SERVICE_URL}/groups/caves/{cave_id}/assignments",
             headers={"X-Service-Token": SERVICE_TOKEN}
         )
