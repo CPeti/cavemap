@@ -125,16 +125,6 @@ const CaveTable = ({ caves = [] }) => {
                             <th
                                 scope="col"
                                 className="group px-6 py-4 text-left text-sm font-medium text-slate-300 cursor-pointer hover:bg-slate-700/50 transition-colors duration-150 select-none"
-                                onClick={() => handleSort('vertical_extent')}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span>Vertical Extent</span>
-                                    {getSortIcon('vertical_extent')}
-                                </div>
-                            </th>
-                            <th
-                                scope="col"
-                                className="group px-6 py-4 text-left text-sm font-medium text-slate-300 cursor-pointer hover:bg-slate-700/50 transition-colors duration-150 select-none"
                                 onClick={() => handleSort('horizontal_extent')}
                             >
                                 <div className="flex items-center justify-between">
@@ -179,16 +169,13 @@ const CaveTable = ({ caves = [] }) => {
                                         {cave.depth}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-slate-400">
-                                        {cave.vertical_extent}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-slate-400">
                                         {cave.horizontal_extent}
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="9" className="px-6 py-16 text-center">
+                                <td colSpan="8" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center space-y-3">
                                         <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center">
                                             <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,7 +210,6 @@ CaveTable.propTypes = {
             last_surveyed: PropTypes.string,
             length: PropTypes.number,
             depth: PropTypes.number,
-            vertical_extent: PropTypes.number,
             horizontal_extent: PropTypes.number,
         })
     ).isRequired,

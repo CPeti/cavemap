@@ -97,7 +97,7 @@ ingress:
   enabled: true
   tls:
     enabled: true
-  className: traefik
+  className: chart-traefik
   host: localhost.me
   tlsSecret: frontend-cert
 
